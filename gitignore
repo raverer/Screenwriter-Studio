@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Project folders
+exports/
+projects/
+templates/
+
+# MacOS
+.DS_Store
+
+# Model files (never commit!)
+*.bin
+*.gguf
+*.onnx
+*.pth
+*.safetensors
+
+# Virtual environment
+venv/
+.env/
