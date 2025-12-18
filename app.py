@@ -92,6 +92,10 @@ Do not explain. Output only screenplay text.
 # ===============================
 def call_groq(system: str, user: str) -> str:
     model = pick_model_for_generation(user)
+
+    # Safety clamp (VERY IMPORTANT)
+    safe_max_tokens = min(max_tokens, 2048)
+
     completion = client.chat.completions.create(
         model=model,
         messages=[
@@ -99,9 +103,11 @@ def call_groq(system: str, user: str) -> str:
             {"role": "user", "content": user}
         ],
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_tokens=safe_max_tokens,
     )
+
     return completion.choices[0].message.content.strip()
+
 
 # ===============================
 # Prompt builders
