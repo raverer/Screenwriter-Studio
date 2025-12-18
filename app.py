@@ -32,6 +32,15 @@ client = Groq(api_key=GROQ_API_KEY)
 GROQ_FAST_MODEL = "llama-3.1-8b-instant"
 GROQ_LONG_MODEL = "llama-3.1-70b-versatile"
 
+def trim_prompt(text: str, max_chars: int = 12000) -> str:
+    """
+    Groq-safe prompt trimming.
+    Uses character count instead of tokens for speed & safety.
+    """
+    if len(text) <= max_chars:
+        return text
+    return text[-max_chars:]
+
 def pick_model_for_generation(prompt: str) -> str:
     return GROQ_FAST_MODEL if len(prompt) < 300 else GROQ_LONG_MODEL
 
@@ -93,20 +102,25 @@ Do not explain. Output only screenplay text.
 def call_groq(system: str, user: str) -> str:
     model = pick_model_for_generation(user)
 
-    # Safety clamp (VERY IMPORTANT)
-    safe_max_tokens = min(max_tokens, 2048)
+    # 🔒 HARD SAFETY LIMITS (Groq-stable)
+    SAFE_MAX_TOKENS = 1024
+    SAFE_PROMPT_CHARS = 12000  # ~8k tokens equivalent
+
+    system_safe = trim_prompt(system, 4000)
+    user_safe = trim_prompt(user, SAFE_PROMPT_CHARS)
 
     completion = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
+            {"role": "system", "content": system_safe},
+            {"role": "user", "content": user_safe}
         ],
         temperature=temperature,
-        max_tokens=safe_max_tokens,
+        max_tokens=SAFE_MAX_TOKENS,
     )
 
     return completion.choices[0].message.content.strip()
+
 
 
 # ===============================
