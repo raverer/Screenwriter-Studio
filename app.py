@@ -102,24 +102,30 @@ Do not explain. Output only screenplay text.
 def call_groq(system: str, user: str) -> str:
     model = pick_model_for_generation(user)
 
-    # 🔒 HARD SAFETY LIMITS (Groq-stable)
-    SAFE_MAX_TOKENS = 1024
-    SAFE_PROMPT_CHARS = 12000  # ~8k tokens equivalent
+    # HARD SAFE LIMITS (Groq-tested)
+    SAFE_SYSTEM_CHARS = 2000
+    SAFE_USER_CHARS = 6000
+    SAFE_MAX_TOKENS = 512
 
-    system_safe = trim_prompt(system, 4000)
-    user_safe = trim_prompt(user, SAFE_PROMPT_CHARS)
+    system = system[-SAFE_SYSTEM_CHARS:]
+    user = user[-SAFE_USER_CHARS:]
 
-    completion = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_safe},
-            {"role": "user", "content": user_safe}
-        ],
-        temperature=temperature,
-        max_tokens=SAFE_MAX_TOKENS,
-    )
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=temperature,
+            max_tokens=SAFE_MAX_TOKENS,
+        )
+        return completion.choices[0].message.content.strip()
 
-    return completion.choices[0].message.content.strip()
+    except Exception as e:
+        # Show readable error instead of crashing
+        st.error("Groq request failed. Try reducing prompt size or regenerating.")
+        raise e
 
 
 
