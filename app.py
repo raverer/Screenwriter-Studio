@@ -62,7 +62,10 @@ for k, v in defaults.items():
 st.sidebar.title("🎬 Screenwriter Studio")
 
 temperature = st.sidebar.slider("Temperature", 0.1, 1.2, 0.7)
-max_tokens = st.sidebar.slider("Max tokens", 512, 4096, 2048, step=256)
+max_tokens = st.sidebar.slider(
+    "Max tokens",
+    256, 768, 512, step=128
+)
 
 st.sidebar.markdown("### Metadata")
 title = st.sidebar.text_input("Title / Idea")
@@ -145,6 +148,19 @@ Writing style: {writing_style or "cinematic"}
 Write a COMPLETE short film screenplay from FADE IN to FADE OUT.
 Do not stop early.
 """
+
+def generate_outline():
+    prompt = f"""
+Title: {title}
+Genre: {genre}
+Tone: {tone}
+Characters: {characters}
+Setting: {setting}
+
+Create a 6-beat short film outline.
+Each beat: 1 sentence.
+"""
+    return call_groq(SYSTEM_PROMPT, prompt)
 
 def viral_prompt():
     return f"""
