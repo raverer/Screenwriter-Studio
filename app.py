@@ -91,13 +91,12 @@ script_doctor_btn = st.sidebar.button("AI Script Doctor")
 # ===============================
 # System prompt (SHORT & FAST)
 # ===============================
-SYSTEM_PROMPT = """
-You are a professional screenwriter.
-Write clean, cinematic screenplays using proper format:
-INT./EXT., ACTION, CHARACTER, DIALOGUE.
-Maintain logic, pacing, emotional arcs.
-Do not explain. Output only screenplay text.
-"""
+SYSTEM_PROMPT = (
+    "You are a professional screenwriter. "
+    "Write in standard screenplay format using INT./EXT., ACTION, CHARACTER, DIALOGUE. "
+    "Maintain story logic, pacing, and character motivation. "
+    "Output only the screenplay text."
+)
 
 # ===============================
 # Groq call (NO chat history feeding)
@@ -105,31 +104,21 @@ Do not explain. Output only screenplay text.
 def call_groq(system: str, user: str) -> str:
     model = pick_model_for_generation(user)
 
-    # HARD SAFE LIMITS (Groq-tested)
-    SAFE_SYSTEM_CHARS = 2000
-    SAFE_USER_CHARS = 6000
-    SAFE_MAX_TOKENS = 512
-
-    system = system[-SAFE_SYSTEM_CHARS:]
-    user = user[-SAFE_USER_CHARS:]
-
     try:
         completion = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                {"role": "system", "content": system[:1000]},
+                {"role": "user", "content": user[-4000:]},
             ],
             temperature=temperature,
-            max_tokens=SAFE_MAX_TOKENS,
+            max_tokens=512,
         )
         return completion.choices[0].message.content.strip()
 
     except Exception as e:
-        # Show readable error instead of crashing
-        st.error("Groq request failed. Try reducing prompt size or regenerating.")
+        st.error("Groq request failed. Please generate scene by scene.")
         raise e
-
 
 
 # ===============================
@@ -181,12 +170,19 @@ Add caption + hashtags.
 # Generation logic
 # ===============================
 def generate_script():
-    if "Social Media" in script_format:
-        prompt = viral_prompt()
-    else:
-        prompt = shortfilm_prompt()
+    prompt = f"""
+Title: {title}
+Genre: {genre}
+Tone: {tone}
+Characters: {characters}
+Setting: {setting}
+Notes: {notes}
 
-    with st.spinner("Generating script…"):
+Write ONLY SCENE 1 of a short film.
+Start with FADE IN.
+Do not write more than one scene.
+"""
+    with st.spinner("Generating Scene 1…"):
         result = call_groq(SYSTEM_PROMPT, prompt)
 
     st.session_state.script_text = result
@@ -194,17 +190,18 @@ def generate_script():
 
 def generate_next_scene():
     prompt = f"""
-Continue the screenplay below with the NEXT logical scene.
+Continue the screenplay with the NEXT scene only.
 Do not repeat scenes.
 
-SCREENPLAY:
-{st.session_state.script_text}
+SCREENPLAY SO FAR:
+{st.session_state.script_text[-4000:]}
 """
     with st.spinner("Generating next scene…"):
         out = call_groq(SYSTEM_PROMPT, prompt)
 
     st.session_state.script_text += "\n\n" + out
     st.session_state.last_assistant = out
+
 
 def run_script_doctor():
     prompt = f"""
