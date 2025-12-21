@@ -72,21 +72,24 @@ SYSTEM_PROMPT = (
 # ===============================
 # Groq call (CORRECT API)
 # ===============================
-def call_groq(system_prompt: str, user_prompt: str) -> str:
+def call_groq(system: str, user: str) -> str:
+    model = pick_model_for_generation(user)
+
     try:
-        response = client.responses.create(
-            model=GROQ_MODEL,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt[-4000:]},
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system[:1000]},
+                {"role": "user", "content": user[-4000:]},
             ],
             temperature=temperature,
-            max_output_tokens=max_tokens,
+            max_tokens=max_tokens,
         )
-        return response.output_text.strip()
+
+        return completion.choices[0].message.content.strip()
 
     except Exception as e:
-        st.error("Groq request failed. Try generating scene by scene.")
+        st.error("Groq request failed. Please generate scene by scene.")
         raise e
 
 # ===============================
