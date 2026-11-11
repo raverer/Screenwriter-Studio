@@ -1,10 +1,19 @@
-# app.py — Screenwriter Studio (Groq Final)
-# Stable, fast, Streamlit Cloud ready
+# app.py — Screenwriter Studio
+# Streamlit screenplay writing app powered by Groq.
 
 import os
 import html
+from io import BytesIO
+from xml.sax.saxutils import escape as xml_escape
+
 import streamlit as st
 from groq import Groq
+from docx import Document
+from docx.shared import Pt, Inches
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragraph
 
 # ===============================
 # Page config
@@ -25,15 +34,16 @@ if not GROQ_API_KEY:
 client = Groq(api_key=GROQ_API_KEY)
 
 # ===============================
-# Models (SAFE)
+# Model configuration
 # ===============================
-GROQ_MODEL = "llama-3.1-8b-instant"  # safest for Streamlit Cloud
+GROQ_MODEL = "llama-3.1-8b-instant"
 
 # ===============================
 # Session defaults
 # ===============================
 st.session_state.setdefault("script_text", "")
 st.session_state.setdefault("last_assistant", "")
+st.session_state.setdefault("script_before_doctor", "")
 
 # ===============================
 # Sidebar UI
@@ -60,43 +70,104 @@ next_scene_btn = st.sidebar.button("Generate Next Scene")
 doctor_btn = st.sidebar.button("AI Script Doctor")
 
 # ===============================
-# System prompt (SHORT, SAFE)
+# System prompt
 # ===============================
 SYSTEM_PROMPT = (
     "You are a professional screenwriter. "
-    "Write in standard screenplay format using INT./EXT., ACTION, CHARACTER, DIALOGUE. "
-    "Maintain story logic and pacing. "
-    "Output only the screenplay text."
+    "Write in standard screenplay format using INT./EXT., ACTION, CHARACTER, and DIALOGUE. "
+    "Maintain story logic, character continuity, visual storytelling, and pacing. "
+    "Output only the requested screenplay text."
 )
 
 # ===============================
 # Groq call
 # ===============================
 def call_groq(system: str, user: str) -> str:
-    # Use the configured model constant. The previous model-selection
-    # function was undefined and caused a NameError on every generation.
     try:
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": system[:1000]},
-                {"role": "user", "content": user[-4000:]},
+                {"role": "user", "content": user[-12000:]},
             ],
             temperature=temperature,
             max_tokens=max_tokens,
         )
+        response = completion.choices[0].message.content
+        if not response or not response.strip():
+            raise ValueError("The model returned an empty response.")
+        return response.strip()
+    except Exception as exc:
+        st.error(f"Groq request failed: {exc}")
+        raise
 
-        return completion.choices[0].message.content.strip()
+# ===============================
+# Export helpers
+# ===============================
+def create_docx(script: str) -> bytes:
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = Inches(0.8)
+    section.bottom_margin = Inches(0.8)
+    section.left_margin = Inches(1.2)
+    section.right_margin = Inches(1.0)
 
-    except Exception as e:
-        st.error("Groq request failed. Please generate scene by scene.")
-        raise e
+    normal = document.styles["Normal"]
+    normal.font.name = "Courier New"
+    normal.font.size = Pt(10)
+
+    if title.strip():
+        heading = document.add_heading(title.strip(), level=1)
+        for run in heading.runs:
+            run.font.name = "Courier New"
+
+    for line in script.splitlines():
+        paragraph = document.add_paragraph()
+        paragraph.paragraph_format.space_after = Pt(0)
+        run = paragraph.add_run(line if line else " ")
+        run.font.name = "Courier New"
+        run.font.size = Pt(10)
+
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def create_pdf(script: str) -> bytes:
+    buffer = BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.75 * inch,
+        leftMargin=1.0 * inch,
+        topMargin=0.7 * inch,
+        bottomMargin=0.7 * inch,
+        title=title.strip() or "Screenplay",
+    )
+    screenplay_style = ParagraphStyle(
+        "Screenplay",
+        fontName="Courier",
+        fontSize=8.5,
+        leading=11,
+    )
+    safe_script = xml_escape(script)
+    story = []
+    if title.strip():
+        story.append(Paragraph(xml_escape(title.strip()), ParagraphStyle(
+            "DocumentTitle", parent=screenplay_style, fontSize=14, leading=18
+        )))
+        story.append(Spacer(1, 0.2 * inch))
+    story.append(Preformatted(safe_script, screenplay_style, maxLineLength=88))
+    pdf.build(story)
+    return buffer.getvalue()
+
 
 # ===============================
 # Generation logic
 # ===============================
 def generate_scene_1():
     prompt = f"""
+Project details:
 Title: {title}
 Genre: {genre}
 Tone: {tone}
@@ -104,10 +175,12 @@ Characters: {characters}
 Setting: {setting}
 Notes: {notes}
 Writing style: {writing_style or "cinematic"}
+Trend / viral reference: {trend_style or "None"}
 
 Write ONLY SCENE 1 of a short film.
 Start with FADE IN.
 Do not write more than one scene.
+Use screenplay format.
 """
     with st.spinner("Generating Scene 1…"):
         result = call_groq(SYSTEM_PROMPT, prompt)
@@ -117,12 +190,17 @@ Do not write more than one scene.
 
 
 def generate_next_scene():
+    if not st.session_state.script_text.strip():
+        st.warning("Generate Scene 1 before asking for the next scene.")
+        return
+
     prompt = f"""
 Continue the screenplay with the NEXT scene only.
-Do not repeat previous scenes.
+Do not repeat previous scenes. Maintain character, plot, location,
+and timeline continuity. End at a natural transition point.
 
 SCREENPLAY SO FAR:
-{st.session_state.script_text[-4000:]}
+{st.session_state.script_text[-10000:]}
 """
     with st.spinner("Generating next scene…"):
         result = call_groq(SYSTEM_PROMPT, prompt)
@@ -132,18 +210,40 @@ SCREENPLAY SO FAR:
 
 
 def run_script_doctor():
+    current_script = st.session_state.script_text.strip()
+    if not current_script:
+        st.warning("Generate or enter a screenplay before using AI Script Doctor.")
+        return
+
     prompt = f"""
-Analyze the following screenplay.
-Improve pacing, dialogue, and character motivation.
-Rewrite ONLY the weak sections.
+Act as a screenplay editor and script doctor.
 
-SCRIPT:
-{st.session_state.script_text}
+Review the screenplay for:
+- Story structure, pacing, and scene progression
+- Character motivation, consistency, and development
+- Dialogue naturalness and subtext
+- Visual storytelling and cinematic action
+- Repetition, plot gaps, and continuity errors
+
+Then provide a COMPLETE revised version of the screenplay, not notes,
+not a list of suggestions, and not only selected excerpts.
+Preserve the original premise, intended tone, characters, and all important
+story events unless a change is necessary to fix a clear story problem.
+Keep standard screenplay formatting. Do not invent a new story.
+
+SCREENPLAY TO REVISE:
+{current_script}
 """
-    with st.spinner("Running AI Script Doctor…"):
-        result = call_groq(SYSTEM_PROMPT, prompt)
+    with st.spinner("Reviewing and revising the complete screenplay…"):
+        revised_script = call_groq(SYSTEM_PROMPT, prompt)
 
-    st.session_state.last_assistant = result
+    st.session_state.script_before_doctor = current_script
+    st.session_state.script_text = revised_script
+    st.session_state.last_assistant = (
+        "AI Script Doctor completed a full screenplay revision. "
+        "The revised version is now shown in the screenplay panel."
+    )
+    st.success("The revised screenplay has replaced the previous version. The original is retained in this session.")
 
 # ===============================
 # Button actions
@@ -181,4 +281,33 @@ with right:
     else:
         st.caption("No assistant output yet.")
 
-st.caption("⚡ Powered by Groq · LLaMA-3.1")
+# ===============================
+# Download controls
+# ===============================
+if st.session_state.script_text.strip():
+    st.markdown("### Export screenplay")
+    export_col1, export_col2 = st.columns(2)
+
+    with export_col1:
+        docx_data = create_docx(st.session_state.script_text)
+        st.download_button(
+            label="Download DOCX",
+            data=docx_data,
+            file_name=f"{title.strip() or 'screenplay'}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
+    with export_col2:
+        pdf_data = create_pdf(st.session_state.script_text)
+        st.download_button(
+            label="Download PDF",
+            data=pdf_data,
+            file_name=f"{title.strip() or 'screenplay'}.pdf",
+            mime="application/pdf",
+        )
+
+    if st.session_state.script_before_doctor:
+        with st.expander("View original screenplay before Script Doctor"):
+            st.text(st.session_state.script_before_doctor)
+
+st.caption(f"⚡ Powered by Groq · {GROQ_MODEL}")
