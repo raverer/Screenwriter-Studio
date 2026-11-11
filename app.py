@@ -70,14 +70,14 @@ SYSTEM_PROMPT = (
 )
 
 # ===============================
-# Groq call (CORRECT API)
+# Groq call
 # ===============================
 def call_groq(system: str, user: str) -> str:
-    model = pick_model_for_generation(user)
-
+    # Use the configured model constant. The previous model-selection
+    # function was undefined and caused a NameError on every generation.
     try:
         completion = client.chat.completions.create(
-            model=model,
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": system[:1000]},
                 {"role": "user", "content": user[-4000:]},
