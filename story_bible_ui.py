@@ -41,7 +41,8 @@ STORY_BIBLE_FIELDS = {
 
 def render_story_bible(project_id):
     """Render project-scoped create, read, update and delete controls."""
-    with st.expander("📚 Story Bible — project memory", expanded=False):
+    with st.container():
+        st.subheader("📚 Story Bible — project memory")
         if project_id is None:
             st.info("Enter a project title in the sidebar to create and save its Story Bible.")
             return
@@ -109,8 +110,7 @@ def render_story_bible(project_id):
                 if not category_entries:
                     st.caption("No records in this section yet.")
                 for entry in category_entries:
-                    with st.container():
-                        st.markdown("**" + entry["name"] + "**")
+                    with st.expander(entry["name"], expanded=False):
                         with st.form(f"story_bible_edit_{entry['id']}"):
                             edited_name = st.text_input(
                                 "Name / event title",
