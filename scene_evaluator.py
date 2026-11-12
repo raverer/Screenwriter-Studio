@@ -50,7 +50,7 @@ def _extract_json(raw):
     text = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text, flags=re.IGNORECASE)
     start, end = text.find("{"), text.rfind("}")
     if start < 0 or end <= start:
-        raise ValueError("Evaluator did not return a JSON object.")
+        raise ValueError("Evaluator did not return valid JSON: no JSON object was found.")
     try:
         return json.loads(text[start:end + 1])
     except json.JSONDecodeError as exc:
