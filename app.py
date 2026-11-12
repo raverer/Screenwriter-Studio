@@ -280,6 +280,7 @@ camera directions. Output screenplay text only."""
     st.session_state.last_assistant = "Scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
+    st.session_state["scene_plan_approval"] = False
     st.session_state.project_bible = project_context()
 
 def generate_next_scene():
@@ -336,6 +337,7 @@ if plan_opening_btn:
     try:
         st.session_state.scene_plan = create_scene_plan()
         st.session_state.scene_plan_approved = False
+        st.session_state["scene_plan_approval"] = False
         st.session_state["scene_plan_editor"] = st.session_state.scene_plan
         st.session_state.last_assistant = "Scene Blueprint created. Review and approve it before generation."
     except Exception as exc:
