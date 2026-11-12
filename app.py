@@ -14,6 +14,11 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragraph
 
+from story_bible import format_story_bible_context, init_db, upsert_project
+from story_bible_ui import render_story_bible
+
+init_db()
+
 st.set_page_config(page_title="Screenwriter Studio", layout="wide")
 
 OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
@@ -28,9 +33,6 @@ for key, default in {
     "scene_plan": "",
     "scene_plan_approved": False,
     "validation_report": [],
-    "last_approved_blueprint": "",
-    "last_generated_scene": "",
-    "evaluation_report": None,
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -178,6 +180,24 @@ notes = st.sidebar.text_area("Story notes / constraints", placeholder="Themes, p
 writing_style = st.sidebar.text_input("Style reference (optional)", placeholder="Describe qualities, not just a name")
 trend_style = st.sidebar.text_input("Audience / genre convention (optional)")
 
+current_project_id = None
+if title.strip():
+    current_project_id = upsert_project(
+        title,
+        {
+            "format": project_type,
+            "language": language,
+            "genre": genre,
+            "tone": tone,
+            "characters": characters,
+            "setting": setting,
+            "logline": logline,
+            "notes": notes,
+            "writing_style": writing_style,
+            "audience_guidance": trend_style,
+        },
+    )
+
 st.sidebar.markdown("---")
 generate_btn = st.sidebar.button("✍️ Generate Scene 1", use_container_width=True)
 next_scene_btn = st.sidebar.button("＋ Generate Next Scene", use_container_width=True)
@@ -185,10 +205,9 @@ doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True
 plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
 plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
 validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
-evaluate_btn = st.sidebar.button("🧠 Evaluate Last Scene", use_container_width=True)
 
 def project_context():
-    return f"""PROJECT
+    context = f"""PROJECT
 Title: {title or 'Untitled'}
 Format: {project_type}
 Language: {language}
@@ -200,6 +219,10 @@ Setting: {setting}
 Story notes and constraints: {notes}
 Style guidance: {writing_style or 'Cinematic, original and restrained'}
 Audience / genre guidance: {trend_style or 'Use genre conventions without clichés'}"""
+    bible_context = format_story_bible_context(current_project_id)
+    if bible_context:
+        context += "\n\n" + bible_context
+    return context
 
 system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
@@ -242,7 +265,6 @@ Every beat must cause or motivate the next. Do not write screenplay dialogue."""
         )
 
 from screenplay_validator import validate_screenplay
-from scene_evaluator import evaluate_scene
 
 def generate_scene_1():
     if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
@@ -260,9 +282,6 @@ camera directions. Output screenplay text only."""
     with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text = result
-    st.session_state.last_approved_blueprint = st.session_state.scene_plan
-    st.session_state.last_generated_scene = result
-    st.session_state.evaluation_report = None
     st.session_state.last_assistant = "Scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
@@ -346,18 +365,6 @@ if plan_next_btn:
 if validate_btn:
     st.session_state.validation_report = validate_screenplay(st.session_state.script_text)
 
-if evaluate_btn or st.session_state.pop("run_scene_evaluation", False):
-    try:
-        with st.spinner("Evaluating the last generated scene against its approved blueprint…"):
-            st.session_state.evaluation_report = evaluate_scene(
-                st.session_state.last_approved_blueprint,
-                st.session_state.last_generated_scene,
-                lambda system, prompt: call_ollama(system, prompt, model, 0.1, 1800, response_format="json"),
-            )
-        st.session_state.last_assistant = "Evidence-based scene evaluation completed."
-    except Exception as exc:
-        st.error(f"Scene evaluation failed: {exc}")
-
 if generate_btn:
     try:
         generate_scene_1()
@@ -376,6 +383,7 @@ if doctor_btn:
 
 st.title("🎬 Screenwriter Studio")
 st.caption(f"Local model: {model} · Format: {project_type} · Language: {language}")
+render_story_bible(current_project_id)
 left, right = st.columns([2, 1])
 with left:
     st.subheader("📄 Screenplay")
@@ -400,9 +408,6 @@ with right:
             st.caption("Generation is locked until you approve the blueprint.")
     else:
         st.caption("Plan → Review/edit → Approve → Generate.")
-    if st.session_state.last_generated_scene:
-        st.caption("Evaluate the most recently generated scene against the blueprint used to create it.")
-        st.button("🧠 Evaluate Last Scene", key="evaluate_scene_panel", on_click=lambda: st.session_state.update({"run_scene_evaluation": True}))
     st.subheader("💬 Studio notes")
     if st.session_state.last_assistant:
         st.info(st.session_state.last_assistant)
@@ -411,31 +416,6 @@ with right:
     st.write(f"**Format:** {project_type}")
     st.write(f"**Language:** {language}")
     st.write(f"**Genre:** {genre or 'Not specified'}")
-
-if st.session_state.evaluation_report:
-    report = st.session_state.evaluation_report
-    st.markdown("### 🧠 Scene evaluation")
-    st.metric("Average scene score", f"{report['average_score']} / 5")
-    st.caption("LLM-as-a-judge assessment. Scores are editorial estimates, not objective measurements.")
-    for criterion, item in report["criteria"].items():
-        with st.expander(f"{criterion.replace('_', ' ').title()} — {item['score']}/5"):
-            st.write(item["feedback"])
-            if item["evidence"]:
-                st.markdown("**Screenplay evidence**")
-                st.markdown("> " + item["evidence"].replace("\n", "\n> "))
-            else:
-                st.caption("No supporting excerpt supplied.")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown("**Strengths**")
-        for item in report["strengths"]:
-            st.write(f"• {item}")
-    with col_b:
-        st.markdown("**Improvements**")
-        for item in report["improvements"]:
-            st.write(f"• {item}")
-    st.markdown("**Overall assessment**")
-    st.write(report["overall_assessment"])
 
 if st.session_state.validation_report:
     st.markdown("### 🔎 Screenplay validation")
