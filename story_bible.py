@@ -7,9 +7,10 @@ import json
 import os
 import sqlite3
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(os.getenv("SCREENWRITER_DB_PATH", Path(__file__).with_name("screenwriter_studio.db")))
+DB_PATH = Path(os.getenv("SCREENWRITER_DB_PATH") or Path(__file__).with_name("screenwriter_studio.db"))
 
 CATEGORIES = ("character", "location", "prop", "timeline")
 
@@ -18,14 +19,21 @@ def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+@contextmanager
 def _connect(db_path=None):
     path = Path(db_path) if db_path is not None else DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(str(path))
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    return connection
-
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 def init_db(db_path=None):
     """Create the project and Story Bible tables if they do not exist."""
