@@ -1,11 +1,102 @@
-# 🎬 Screenwriter Studio — AI Scriptwriting App
+# Screenwriter Studio
 
+A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, and Ollama.
 
-This is a Streamlit app for AI-powered scriptwriting (short films and viral short-format videos),
-using Groq Cloud for model inference (LLaMA 3 models).
+Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, preserve project facts, run deterministic formatting checks, and export scripts.
 
-## Quickstart (local)
+## Features
 
-1. Create a Python venv and activate it.
-2. Install dependencies:
+- **Local LLM writing:** generate screenplay scenes using a locally running Ollama model.
+- **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
+- **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
+- **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
+- **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
+- **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
+- **Export:** download screenplay drafts as DOCX or PDF.
 
+## Architecture
+
+- `app.py` — Streamlit application, project setup, generation workflow, and exports.
+- `story_bible.py` — SQLite persistence layer for projects and Story Bible records. Independent of Streamlit and Ollama.
+- `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
+- `screenplay_validator.py` — deterministic, dependency-free screenplay checks.
+- `tests/` — unit tests for persistence, validation, and experimental evaluator logic.
+
+The Story Bible is currently **manually maintained** by the writer. Automatic fact extraction and semantic retrieval/RAG are not implemented yet.
+
+## Requirements
+
+- Python 3.10+
+- [Ollama](https://ollama.com/) installed and running
+- A model available locally in Ollama (the default configured model is `llama3:latest`)
+
+## Run locally
+
+Clone the repository and enter the project directory:
+
+```bash
+git clone https://github.com/raverer/Screenwriter-Studio.git
+cd Screenwriter-Studio
+```
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Pull the default model if it is not already installed:
+
+```bash
+ollama pull llama3:latest
+```
+
+Start Ollama, then launch the app:
+
+```bash
+streamlit run app.py
+```
+
+To use a different Ollama host, set `OLLAMA_HOST` before launching the app. The default is `http://localhost:11434`.
+
+## Story Bible storage
+
+Story Bible records are stored locally in `screenwriter_studio.db` next to the application. The database is created automatically and is excluded from Git by `.gitignore`.
+
+To store the database elsewhere, set `SCREENWRITER_DB_PATH` to a database file path before launching the app.
+
+Projects are separated by project title. Within a project, entries are organised into four categories:
+
+- **Characters:** age, role, personality, motivation, relationships, continuity facts.
+- **Locations:** type, description, time/atmosphere, visual details.
+- **Props:** description, owner, story significance, continuity facts.
+- **Timeline:** when an event occurs, what happens, people involved, consequences.
+
+Keep a backup of the local database if you need to preserve project data across machines. The app does not sync Story Bible records to GitHub.
+
+## Run tests
+
+From the project root, with the virtual environment activated:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+## Current limitations
+
+- Story Bible facts must be entered and maintained by the writer; automatic extraction is a future enhancement.
+- Continuity information is added to the prompt as bounded text context. A retrieval-augmented generation (RAG) pipeline is not implemented yet.
+- Screenplay formatting checks are heuristic and should be reviewed by a human.
+- Local model output quality and response speed depend on the selected model and available hardware.
+- The scene evaluator is experimental and is not part of the active Streamlit workflow.
+
+## Privacy
+
+Inference is sent to the configured Ollama server. With the default local Ollama setup, prompts are processed on the local machine. The SQLite project database is also stored locally. Do not expose local database files, secrets, or private screenplay material in public repositories.
