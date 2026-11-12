@@ -109,7 +109,7 @@ def render_story_bible(project_id):
                 if not category_entries:
                     st.caption("No records in this section yet.")
                 for entry in category_entries:
-                    with st.container(border=True):
+                    with st.container():
                         st.markdown("**" + entry["name"] + "**")
                         with st.form(f"story_bible_edit_{entry['id']}"):
                             edited_name = st.text_input(
