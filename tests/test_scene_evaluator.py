@@ -45,7 +45,7 @@ class SceneEvaluatorTests(unittest.TestCase):
         self.assertIn("could not be verified", result["criteria"]["ending_hook"]["feedback"])
 
     def test_evidence_whitespace_differences_are_accepted(self):
-        script = "Aarav watches the light.\\nMira enters."
+        script = "Aarav watches the light.\nMira enters."
         payload = valid_payload(script)
         payload["criteria"]["ending_hook"]["evidence"] = "Aarav watches the light. Mira enters."
         result = evaluate_scene("Blueprint", script, lambda *_: json.dumps(payload))
