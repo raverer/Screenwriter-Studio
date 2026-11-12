@@ -97,9 +97,17 @@ def evaluate_scene(blueprint, screenplay, llm_call):
             feedback = feedback.rstrip() + " [The supplied evidence could not be verified against the screenplay and has been omitted.]"
         validated[name] = {"score": score, "evidence": evidence, "feedback": feedback}
 
+    normalised_lists = {}
     for field in ("strengths", "improvements"):
-        if not isinstance(data.get(field), list) or not all(isinstance(x, str) for x in data[field]):
-            raise ValueError(f"Evaluation field '{field}' must be a list of text.")
+        value = data.get(field, [])
+        if value is None:
+            value = []
+        elif isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+            raise ValueError(f"Evaluation field '{field}' must contain text or a list of text.")
+        normalised_lists[field] = [item.strip() for item in value if item.strip()]
+
     if not isinstance(data.get("overall_assessment"), str):
         raise ValueError("Evaluation is missing its overall_assessment text.")
 
@@ -107,7 +115,7 @@ def evaluate_scene(blueprint, screenplay, llm_call):
     return {
         "criteria": validated,
         "average_score": average,
-        "strengths": data["strengths"],
-        "improvements": data["improvements"],
+        "strengths": normalised_lists["strengths"],
+        "improvements": normalised_lists["improvements"],
         "overall_assessment": data["overall_assessment"],
     }
