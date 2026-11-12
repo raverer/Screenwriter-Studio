@@ -49,7 +49,7 @@ class SceneEvaluatorTests(unittest.TestCase):
         payload = valid_payload(script)
         payload["criteria"]["ending_hook"]["evidence"] = "Aarav watches the light. Mira enters."
         result = evaluate_scene("Blueprint", script, lambda *_: json.dumps(payload))
-        self.assertTrue(result["criteria"]["ending_hook"]["evidence"])
+        self.assertEqual(result["criteria"]["ending_hook"]["evidence"], payload["criteria"]["ending_hook"]["evidence"])
 
     def test_rejects_invalid_json(self):
         with self.assertRaisesRegex(ValueError, "valid JSON"):
