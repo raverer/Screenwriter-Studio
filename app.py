@@ -1,6 +1,7 @@
 # Screenwriter Studio — local Ollama edition
 import html
 import os
+import re
 from io import BytesIO
 from xml.sax.saxutils import escape as xml_escape
 
@@ -25,6 +26,8 @@ for key, default in {
     "script_before_doctor": "",
     "project_bible": "",
     "scene_plan": "",
+    "scene_plan_approved": False,
+    "validation_report": [],
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -176,6 +179,7 @@ next_scene_btn = st.sidebar.button("＋ Generate Next Scene", use_container_widt
 doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True)
 plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
 plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
+validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
 
 def project_context():
     return f"""PROJECT
@@ -195,96 +199,114 @@ system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
 def create_scene_plan(previous_script=""):
     context = project_context()
-    if previous_script:
-        task = f"""Plan exactly ONE next scene that continues this screenplay.
-Do not write screenplay dialogue or prose. Build a dramatic scene plan that
-changes the situation and advances the story. Avoid repeating the previous
-scene's main beat.
-
-SCREENPLAY SO FAR:
-{previous_script[-9000:]}"""
-    else:
-        task = """Plan the opening scene of this project. Establish a compelling
-dramatic situation, introduce the protagonist through behaviour, and create a
-clear hook or turning point. Do not write the screenplay itself."""
+    task = (f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\\nSCREENPLAY SO FAR:\\n{previous_script[-9000:]}"
+            if previous_script else
+            "Plan the opening scene. Establish the protagonist through behaviour, create a dramatic situation and a compelling hook without rushing the main premise.")
     prompt = f"""{context}
 
 {task}
 
-Return a concise plan using exactly these labelled sections:
+Consider project format, genre and tone. For comedy, identify character-based or
+situational humour. For science fiction, use grounded foreshadowing without
+revealing the central mystery too early. Give each major character agency.
+Separate the whole-project premise from this scene's specific job.
+
+Return these sections:
 SCENE PURPOSE:
-POV / FOCUS CHARACTER:
-CHARACTER OBJECTIVE:
-OBSTACLE / CONFLICT:
-BEATS:
-1.
-2.
-3.
-4.
+FOCUS CHARACTER:
+CHARACTER WANT IN THIS SCENE:
+SCENE OBJECTIVE:
+OBSTACLE:
+CONFLICT:
+CHARACTER DYNAMIC:
+COMEDY / GENRE OPPORTUNITY:
+SETUP:
+BEATS (4-6 causal beats):
+ESCALATION:
 TURNING POINT:
-WHAT CHANGES BY THE END:
-CONTINUITY FACTS TO PRESERVE:
-Keep it specific to the supplied premise. Make character choices drive events.
-Do not invent major story facts that contradict the project notes."""
-    with st.spinner("Llama 3 is planning the dramatic structure…"):
+ENDING / HOOK:
+WHAT CHANGES:
+CONTINUITY FACTS:
+UNRESOLVED QUESTIONS:
+Every beat must cause or motivate the next. Do not write screenplay dialogue."""
+    with st.spinner("Llama 3 is designing the scene blueprint…"):
         return call_ollama(
-            "You are a professional story editor and scene architect. Plan dramatic action, not decorative events. Be specific, causal and concise.",
-            prompt, model, min(0.4, temperature), 900
+            "You are a professional story editor. Design playable, causal dramatic scenes. Avoid generic beats and decorative events.",
+            prompt, model, min(0.35, temperature), 1100
         )
 
+def validate_screenplay(script):
+    findings = []
+    lines = script.splitlines()
+    headings = []
+    for number, line in enumerate(lines, 1):
+        clean = line.strip()
+        if re.match(r"^(INT\\.|EXT\\.|INT\\./EXT\\.|I/E\\.)", clean, re.I):
+            headings.append((number, clean))
+            if clean.upper().startswith("INT.") and re.search(r"\\b(BEACH|PARK|STREET|ROAD|ROOFTOP|GARDEN|FOREST|FIELD)\\b", clean, re.I):
+                findings.append(("warning", f"Line {number}: '{clean}' may need EXT. rather than INT."))
+            if clean.upper().startswith("EXT.") and re.search(r"\\b(ROOM|OFFICE|KITCHEN|BEDROOM|RESTAURANT|HALLWAY|LIFT|ELEVATOR)\\b", clean, re.I):
+                findings.append(("warning", f"Line {number}: '{clean}' may need INT. rather than EXT."))
+        if clean.upper() in {"CUT TO:", "FADE OUT.", "FADE TO BLACK.", "DISSOLVE TO:"}:
+            if sum(1 for prior in lines[:number] if prior.strip().upper() == clean.upper()) > 1:
+                findings.append(("warning", f"Line {number}: repeated transition '{clean}' may be unnecessary."))
+    if not headings:
+        findings.append(("error", "No standard INT./EXT. scene heading detected."))
+    else:
+        findings.append(("info", f"{len(headings)} scene heading(s) detected."))
+    if re.search(r"\\bCUT TO:|\\bCAMERA (PANS|ZOOMS|MOVES)|THE CAMERA\\b", script, re.I):
+        findings.append(("warning", "Camera directions or frequent transitions found; review whether they are essential."))
+    if not findings:
+        findings.append(("success", "No basic formatting issues detected."))
+    findings.append(("info", "Automated checks are suggestions, not a substitute for screenplay-editor review."))
+    return findings
+
 def generate_scene_1():
-    if not st.session_state.scene_plan.strip():
-        st.session_state.scene_plan = create_scene_plan()
+    if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
+        st.warning("Create a Scene Blueprint, review it, and approve it before generating.")
+        return
     prompt = f"""{project_context()}
 
-APPROVED SCENE PLAN:
+HUMAN-APPROVED SCENE BLUEPRINT:
 {st.session_state.scene_plan}
 
-Write the opening scene based on the plan below. Preserve its objective, conflict,
-beats and turning point. Do not introduce unrelated plot developments.
-"""
-    prompt += f"""{project_context()}
-
-Write the OPENING SCENE only for this project.
-Respect the selected project format: a feature film, OTT/web series episode,
-or short film. Do not assume every project is a short film.
-Establish the world, protagonist and central dramatic question through visual
-storytelling. Give the scene a clear dramatic turn or hook. Avoid exposition
-dumps, generic dialogue and unnecessary CUT TO transitions.
-Aim for approximately 2–3 screenplay pages unless the premise calls for a shorter
-opening. Begin with FADE IN. Output screenplay text only."""
-    with st.spinner("Llama 3 is writing the opening scene locally…"):
+Write ONLY this scene. Follow its objective, conflict, causal beats, escalation
+and turning point. Preserve character facts. Use correct INT./EXT. headings,
+one scene heading unless location changes, minimal transitions and no unnecessary
+camera directions. Output screenplay text only."""
+    with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text = result
-    st.session_state.last_assistant = "Opening scene generated from the scene plan."
+    st.session_state.last_assistant = "Scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
+    st.session_state.scene_plan_approved = False
     st.session_state.project_bible = project_context()
 
 def generate_next_scene():
     if not st.session_state.script_text.strip():
-        st.warning("Generate Scene 1 before asking for the next scene.")
+        st.warning("Generate or paste a screenplay before planning the next scene.")
         return
-    if not st.session_state.scene_plan.strip():
-        st.session_state.scene_plan = create_scene_plan(st.session_state.script_text)
+    if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
+        st.warning("Create a Scene Blueprint, review it, and approve it before generating.")
+        return
     prompt = f"""{project_context()}
 
-APPROVED NEXT-SCENE PLAN:
+HUMAN-APPROVED NEXT-SCENE BLUEPRINT:
 {st.session_state.scene_plan}
 
-Continue this screenplay with the NEXT scene only.
-Do not recap or repeat existing scenes. Continue from the exact final moment.
-Preserve character names, ages, relationships, motivations, props, locations,
-time of day, chronology and unresolved story questions. Advance the story rather
-than repeating the same beat. Give the new scene its own objective, conflict
-and change. Do not resolve the central story prematurely.
+Write ONLY the next scene. Continue without recap. Follow the approved objective,
+conflict, beats and turning point. Preserve established character, location, prop
+and timeline facts. Use correct INT./EXT. headings, minimal transitions and no
+unnecessary camera directions. Output screenplay text only.
 
 SCREENPLAY SO FAR:
 {st.session_state.script_text[-14000:]}"""
-    with st.spinner("Llama 3 is continuing the screenplay…"):
+    with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
-    st.session_state.script_text += "\n\n" + result
-    st.session_state.last_assistant = "Next scene generated and appended."
+    st.session_state.script_text += "\\n\\n" + result
+    st.session_state.last_assistant = "Next scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
+    st.session_state.scene_plan_approved = False
 
 def run_script_doctor():
     current = st.session_state.script_text.strip()
@@ -313,7 +335,9 @@ SCREENPLAY:
 if plan_opening_btn:
     try:
         st.session_state.scene_plan = create_scene_plan()
-        st.session_state.last_assistant = "Opening scene plan created. Review it before generating."
+        st.session_state.scene_plan_approved = False
+        st.session_state["scene_plan_editor"] = st.session_state.scene_plan
+        st.session_state.last_assistant = "Scene Blueprint created. Review and approve it before generation."
     except Exception as exc:
         st.error(str(exc))
 if plan_next_btn:
@@ -322,9 +346,13 @@ if plan_next_btn:
     else:
         try:
             st.session_state.scene_plan = create_scene_plan(st.session_state.script_text)
-            st.session_state.last_assistant = "Next-scene plan created. Review it before generating."
+            st.session_state.scene_plan_approved = False
+            st.session_state["scene_plan_editor"] = st.session_state.scene_plan
+            st.session_state.last_assistant = "Next-scene blueprint created. Review and approve it before generation."
         except Exception as exc:
             st.error(str(exc))
+if validate_btn:
+    st.session_state.validation_report = validate_screenplay(st.session_state.script_text)
 
 if generate_btn:
     try:
@@ -353,14 +381,21 @@ with left:
         placeholder="Your screenplay will appear here. You can also paste or edit a draft."
     )
 with right:
-    st.subheader("🧭 Scene Planner")
+    st.subheader("🧭 Scene Blueprint")
     if st.session_state.scene_plan:
-        st.text_area("Review or edit the scene plan", key="scene_plan_editor",
-                     value=st.session_state.scene_plan, height=330)
-        if st.session_state.get("scene_plan_editor") is not None:
-            st.session_state.scene_plan = st.session_state.scene_plan_editor
+        st.text_area("Review and edit the blueprint", key="scene_plan_editor", height=390)
+        st.session_state.scene_plan = st.session_state.scene_plan_editor
+        st.session_state.scene_plan_approved = st.checkbox(
+            "I have reviewed and approve this blueprint",
+            value=st.session_state.scene_plan_approved,
+            key="scene_plan_approval"
+        )
+        if st.session_state.scene_plan_approved:
+            st.success("Blueprint approved. You can now generate the scene.")
+        else:
+            st.caption("Generation is locked until you approve the blueprint.")
     else:
-        st.caption("Create a scene plan before generating. The plan separates dramatic structure from screenplay prose.")
+        st.caption("Plan → Review/edit → Approve → Generate.")
     st.subheader("💬 Studio notes")
     if st.session_state.last_assistant:
         st.info(st.session_state.last_assistant)
@@ -369,7 +404,14 @@ with right:
     st.write(f"**Format:** {project_type}")
     st.write(f"**Language:** {language}")
     st.write(f"**Genre:** {genre or 'Not specified'}")
-    st.caption("Tip: keep character names and story facts consistent in the project notes.")
+
+if st.session_state.validation_report:
+    st.markdown("### 🔎 Screenplay validation")
+    for level, message in st.session_state.validation_report:
+        if level == "error": st.error(message)
+        elif level == "warning": st.warning(message)
+        elif level == "success": st.success(message)
+        else: st.info(message)
 
 if st.session_state.script_text.strip():
     st.markdown("### Export screenplay")
