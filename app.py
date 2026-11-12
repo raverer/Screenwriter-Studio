@@ -310,9 +310,6 @@ SCREENPLAY SO FAR:
     with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text += "\n\n" + result
-    st.session_state.last_approved_blueprint = st.session_state.scene_plan
-    st.session_state.last_generated_scene = result
-    st.session_state.evaluation_report = None
     st.session_state.last_assistant = "Next scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
