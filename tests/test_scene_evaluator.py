@@ -51,6 +51,15 @@ class SceneEvaluatorTests(unittest.TestCase):
         result = evaluate_scene("Blueprint", script, lambda *_: json.dumps(payload))
         self.assertEqual(result["criteria"]["ending_hook"]["evidence"], payload["criteria"]["ending_hook"]["evidence"])
 
+    def test_string_strengths_and_improvements_are_normalised(self):
+        script = "Aarav watches the light."
+        payload = valid_payload(script)
+        payload["strengths"] = "The opening image is clear."
+        payload["improvements"] = "Increase the obstacle before the turning point."
+        result = evaluate_scene("Blueprint", script, lambda *_: json.dumps(payload))
+        self.assertEqual(result["strengths"], ["The opening image is clear."])
+        self.assertEqual(result["improvements"], ["Increase the obstacle before the turning point."])
+
     def test_rejects_invalid_json(self):
         with self.assertRaisesRegex(ValueError, "valid JSON"):
             evaluate_scene("Blueprint", "A scene.", lambda *_: "not json")
