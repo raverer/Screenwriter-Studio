@@ -57,6 +57,13 @@ def _extract_json(raw):
         raise ValueError(f"Evaluator returned invalid JSON: {exc.msg}. Try evaluating again.") from exc
 
 
+def _normalise_evidence(value):
+    """Normalise formatting-only differences without changing the words."""
+    value = value.replace("\\r\\n", "\\n").replace("\\r", "\\n")
+    value = value.replace("“", '"').replace("”", '"').replace("’", "'").replace("‘", "'")
+    return " ".join(value.split())
+
+
 def evaluate_scene(blueprint, screenplay, llm_call):
     """Call an injected LLM function and validate the structured evaluation."""
     if not blueprint or not blueprint.strip():
@@ -85,8 +92,9 @@ def evaluate_scene(blueprint, screenplay, llm_call):
         feedback = item.get("feedback", "")
         if not isinstance(evidence, str) or not isinstance(feedback, str):
             raise ValueError(f"Evidence and feedback for {name} must be text.")
-        if evidence and evidence not in screenplay:
-            raise ValueError(f"Evidence for {name} is not an exact excerpt from the screenplay.")
+        if evidence and _normalise_evidence(evidence) not in _normalise_evidence(screenplay):
+            evidence = ""
+            feedback = feedback.rstrip() + " [The supplied evidence could not be verified against the screenplay and has been omitted.]"
         validated[name] = {"score": score, "evidence": evidence, "feedback": feedback}
 
     for field in ("strengths", "improvements"):
