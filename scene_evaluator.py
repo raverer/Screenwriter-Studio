@@ -58,11 +58,11 @@ def _extract_json(raw):
 
 
 def _normalise_evidence(value):
-    """Normalise formatting-only differences without changing the words."""
+    """Normalise punctuation, typography and whitespace for evidence matching."""
     value = value.replace("\\r\\n", "\\n").replace("\\r", "\\n")
     value = value.replace("“", '"').replace("”", '"').replace("’", "'").replace("‘", "'")
-    return " ".join(value.split())
-
+    value = re.sub(r"[^\\w]+", " ", value, flags=re.UNICODE)
+    return " ".join(value.casefold().split())
 
 def evaluate_scene(blueprint, screenplay, llm_call):
     """Call an injected LLM function and validate the structured evaluation."""
