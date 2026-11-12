@@ -24,6 +24,7 @@ for key, default in {
     "last_assistant": "",
     "script_before_doctor": "",
     "project_bible": "",
+    "scene_plan": "",
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -173,6 +174,8 @@ st.sidebar.markdown("---")
 generate_btn = st.sidebar.button("✍️ Generate Scene 1", use_container_width=True)
 next_scene_btn = st.sidebar.button("＋ Generate Next Scene", use_container_width=True)
 doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True)
+plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
+plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
 
 def project_context():
     return f"""PROJECT
@@ -190,8 +193,57 @@ Audience / genre guidance: {trend_style or 'Use genre conventions without clich�
 
 system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
+def create_scene_plan(previous_script=""):
+    context = project_context()
+    if previous_script:
+        task = f"""Plan exactly ONE next scene that continues this screenplay.
+Do not write screenplay dialogue or prose. Build a dramatic scene plan that
+changes the situation and advances the story. Avoid repeating the previous
+scene's main beat.
+
+SCREENPLAY SO FAR:
+{previous_script[-9000:]}"""
+    else:
+        task = """Plan the opening scene of this project. Establish a compelling
+dramatic situation, introduce the protagonist through behaviour, and create a
+clear hook or turning point. Do not write the screenplay itself."""
+    prompt = f"""{context}
+
+{task}
+
+Return a concise plan using exactly these labelled sections:
+SCENE PURPOSE:
+POV / FOCUS CHARACTER:
+CHARACTER OBJECTIVE:
+OBSTACLE / CONFLICT:
+BEATS:
+1.
+2.
+3.
+4.
+TURNING POINT:
+WHAT CHANGES BY THE END:
+CONTINUITY FACTS TO PRESERVE:
+Keep it specific to the supplied premise. Make character choices drive events.
+Do not invent major story facts that contradict the project notes."""
+    with st.spinner("Llama 3 is planning the dramatic structure…"):
+        return call_ollama(
+            "You are a professional story editor and scene architect. Plan dramatic action, not decorative events. Be specific, causal and concise.",
+            prompt, model, min(0.4, temperature), 900
+        )
+
 def generate_scene_1():
+    if not st.session_state.scene_plan.strip():
+        st.session_state.scene_plan = create_scene_plan()
     prompt = f"""{project_context()}
+
+APPROVED SCENE PLAN:
+{st.session_state.scene_plan}
+
+Write the opening scene based on the plan below. Preserve its objective, conflict,
+beats and turning point. Do not introduce unrelated plot developments.
+"""
+    prompt += f"""{project_context()}
 
 Write the OPENING SCENE only for this project.
 Respect the selected project format: a feature film, OTT/web series episode,
@@ -204,14 +256,20 @@ opening. Begin with FADE IN. Output screenplay text only."""
     with st.spinner("Llama 3 is writing the opening scene locally…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text = result
-    st.session_state.last_assistant = "Opening scene generated."
+    st.session_state.last_assistant = "Opening scene generated from the scene plan."
+    st.session_state.scene_plan = ""
     st.session_state.project_bible = project_context()
 
 def generate_next_scene():
     if not st.session_state.script_text.strip():
         st.warning("Generate Scene 1 before asking for the next scene.")
         return
+    if not st.session_state.scene_plan.strip():
+        st.session_state.scene_plan = create_scene_plan(st.session_state.script_text)
     prompt = f"""{project_context()}
+
+APPROVED NEXT-SCENE PLAN:
+{st.session_state.scene_plan}
 
 Continue this screenplay with the NEXT scene only.
 Do not recap or repeat existing scenes. Continue from the exact final moment.
@@ -226,6 +284,7 @@ SCREENPLAY SO FAR:
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text += "\n\n" + result
     st.session_state.last_assistant = "Next scene generated and appended."
+    st.session_state.scene_plan = ""
 
 def run_script_doctor():
     current = st.session_state.script_text.strip()
@@ -250,6 +309,22 @@ SCREENPLAY:
     st.session_state.script_text = revised
     st.session_state.last_assistant = "Script Doctor completed a full screenplay revision. Original retained for comparison."
     st.success("Revised screenplay is ready. The previous version is retained below.")
+
+if plan_opening_btn:
+    try:
+        st.session_state.scene_plan = create_scene_plan()
+        st.session_state.last_assistant = "Opening scene plan created. Review it before generating."
+    except Exception as exc:
+        st.error(str(exc))
+if plan_next_btn:
+    if not st.session_state.script_text.strip():
+        st.warning("Generate or paste a screenplay before planning the next scene.")
+    else:
+        try:
+            st.session_state.scene_plan = create_scene_plan(st.session_state.script_text)
+            st.session_state.last_assistant = "Next-scene plan created. Review it before generating."
+        except Exception as exc:
+            st.error(str(exc))
 
 if generate_btn:
     try:
@@ -278,6 +353,14 @@ with left:
         placeholder="Your screenplay will appear here. You can also paste or edit a draft."
     )
 with right:
+    st.subheader("🧭 Scene Planner")
+    if st.session_state.scene_plan:
+        st.text_area("Review or edit the scene plan", key="scene_plan_editor",
+                     value=st.session_state.scene_plan, height=330)
+        if st.session_state.get("scene_plan_editor") is not None:
+            st.session_state.scene_plan = st.session_state.scene_plan_editor
+    else:
+        st.caption("Create a scene plan before generating. The plan separates dramatic structure from screenplay prose.")
     st.subheader("💬 Studio notes")
     if st.session_state.last_assistant:
         st.info(st.session_state.last_assistant)
