@@ -59,9 +59,9 @@ def _extract_json(raw):
 
 def _normalise_evidence(value):
     """Normalise punctuation, typography and whitespace for evidence matching."""
-    value = value.replace("\\r\\n", "\\n").replace("\\r", "\\n")
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
     value = value.replace("“", '"').replace("”", '"').replace("’", "'").replace("‘", "'")
-    value = re.sub(r"[^\\w]+", " ", value, flags=re.UNICODE)
+    value = re.sub(r"[^\w]+", " ", value, flags=re.UNICODE)
     return " ".join(value.casefold().split())
 
 def evaluate_scene(blueprint, screenplay, llm_call):
