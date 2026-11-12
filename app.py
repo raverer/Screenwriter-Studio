@@ -28,6 +28,9 @@ for key, default in {
     "scene_plan": "",
     "scene_plan_approved": False,
     "validation_report": [],
+    "last_approved_blueprint": "",
+    "last_generated_scene": "",
+    "evaluation_report": None,
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -180,6 +183,7 @@ doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True
 plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
 plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
 validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
+evaluate_btn = st.sidebar.button("🧠 Evaluate Last Scene", use_container_width=True)
 
 def project_context():
     return f"""PROJECT
@@ -236,6 +240,7 @@ Every beat must cause or motivate the next. Do not write screenplay dialogue."""
         )
 
 from screenplay_validator import validate_screenplay
+from scene_evaluator import evaluate_scene
 
 def generate_scene_1():
     if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
@@ -253,6 +258,9 @@ camera directions. Output screenplay text only."""
     with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text = result
+    st.session_state.last_approved_blueprint = st.session_state.scene_plan
+    st.session_state.last_generated_scene = result
+    st.session_state.evaluation_report = None
     st.session_state.last_assistant = "Scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
@@ -281,6 +289,9 @@ SCREENPLAY SO FAR:
     with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text += "\n\n" + result
+    st.session_state.last_approved_blueprint = st.session_state.scene_plan
+    st.session_state.last_generated_scene = result
+    st.session_state.evaluation_report = None
     st.session_state.last_assistant = "Next scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
@@ -333,6 +344,18 @@ if plan_next_btn:
 if validate_btn:
     st.session_state.validation_report = validate_screenplay(st.session_state.script_text)
 
+if evaluate_btn or st.session_state.pop("run_scene_evaluation", False):
+    try:
+        with st.spinner("Evaluating the last generated scene against its approved blueprint…"):
+            st.session_state.evaluation_report = evaluate_scene(
+                st.session_state.last_approved_blueprint,
+                st.session_state.last_generated_scene,
+                lambda system, prompt: call_ollama(system, prompt, model, 0.1, 1800),
+            )
+        st.session_state.last_assistant = "Evidence-based scene evaluation completed."
+    except Exception as exc:
+        st.error(f"Scene evaluation failed: {exc}")
+
 if generate_btn:
     try:
         generate_scene_1()
@@ -375,6 +398,9 @@ with right:
             st.caption("Generation is locked until you approve the blueprint.")
     else:
         st.caption("Plan → Review/edit → Approve → Generate.")
+    if st.session_state.last_generated_scene:
+        st.caption("Evaluate the most recently generated scene against the blueprint used to create it.")
+        st.button("🧠 Evaluate Last Scene", key="evaluate_scene_panel", on_click=lambda: st.session_state.update({"run_scene_evaluation": True}))
     st.subheader("💬 Studio notes")
     if st.session_state.last_assistant:
         st.info(st.session_state.last_assistant)
@@ -383,6 +409,31 @@ with right:
     st.write(f"**Format:** {project_type}")
     st.write(f"**Language:** {language}")
     st.write(f"**Genre:** {genre or 'Not specified'}")
+
+if st.session_state.evaluation_report:
+    report = st.session_state.evaluation_report
+    st.markdown("### 🧠 Scene evaluation")
+    st.metric("Average scene score", f"{report['average_score']} / 5")
+    st.caption("LLM-as-a-judge assessment. Scores are editorial estimates, not objective measurements.")
+    for criterion, item in report["criteria"].items():
+        with st.expander(f"{criterion.replace('_', ' ').title()} — {item['score']}/5"):
+            st.write(item["feedback"])
+            if item["evidence"]:
+                st.markdown("**Screenplay evidence**")
+                st.quote(item["evidence"])
+            else:
+                st.caption("No supporting excerpt supplied.")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**Strengths**")
+        for item in report["strengths"]:
+            st.write(f"• {item}")
+    with col_b:
+        st.markdown("**Improvements**")
+        for item in report["improvements"]:
+            st.write(f"• {item}")
+    st.markdown("**Overall assessment**")
+    st.write(report["overall_assessment"])
 
 if st.session_state.validation_report:
     st.markdown("### 🔎 Screenplay validation")
