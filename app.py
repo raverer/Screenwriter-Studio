@@ -63,7 +63,7 @@ Maintain cause-and-effect, character voice, geography, timeline and established 
 Never invent details that contradict the project information or earlier scenes.
 Return clean, copy-ready screenplay text."""
 
-def call_ollama(system, user, model, temperature, max_tokens):
+def call_ollama(system, user, model, temperature, max_tokens, response_format=None):
     payload = {
         "model": model,
         "stream": False,
@@ -77,6 +77,8 @@ def call_ollama(system, user, model, temperature, max_tokens):
             "num_predict": max_tokens,
         },
     }
+    if response_format:
+        payload["format"] = response_format
     try:
         response = requests.post(
             f"{OLLAMA_URL}/api/chat", json=payload, timeout=REQUEST_TIMEOUT
@@ -350,7 +352,7 @@ if evaluate_btn or st.session_state.pop("run_scene_evaluation", False):
             st.session_state.evaluation_report = evaluate_scene(
                 st.session_state.last_approved_blueprint,
                 st.session_state.last_generated_scene,
-                lambda system, prompt: call_ollama(system, prompt, model, 0.1, 1800),
+                lambda system, prompt: call_ollama(system, prompt, model, 0.1, 1800, response_format="json"),
             )
         st.session_state.last_assistant = "Evidence-based scene evaluation completed."
     except Exception as exc:
