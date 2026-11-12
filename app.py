@@ -420,7 +420,7 @@ if st.session_state.evaluation_report:
             st.write(item["feedback"])
             if item["evidence"]:
                 st.markdown("**Screenplay evidence**")
-                st.quote(item["evidence"])
+                st.markdown("> " + item["evidence"].replace("\n", "\n> "))
             else:
                 st.caption("No supporting excerpt supplied.")
     col_a, col_b = st.columns(2)
