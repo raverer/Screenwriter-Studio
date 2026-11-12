@@ -199,7 +199,7 @@ system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
 def create_scene_plan(previous_script=""):
     context = project_context()
-    task = (f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\\nSCREENPLAY SO FAR:\\n{previous_script[-9000:]}"
+    task = (f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\nSCREENPLAY SO FAR:\n{previous_script[-9000:]}"
             if previous_script else
             "Plan the opening scene. Establish the protagonist through behaviour, create a dramatic situation and a compelling hook without rushing the main premise.")
     prompt = f"""{context}
@@ -235,31 +235,7 @@ Every beat must cause or motivate the next. Do not write screenplay dialogue."""
             prompt, model, min(0.35, temperature), 1100
         )
 
-def validate_screenplay(script):
-    findings = []
-    lines = script.splitlines()
-    headings = []
-    for number, line in enumerate(lines, 1):
-        clean = line.strip()
-        if re.match(r"^(INT\\.|EXT\\.|INT\\./EXT\\.|I/E\\.)", clean, re.I):
-            headings.append((number, clean))
-            if clean.upper().startswith("INT.") and re.search(r"\\b(BEACH|PARK|STREET|ROAD|ROOFTOP|GARDEN|FOREST|FIELD)\\b", clean, re.I):
-                findings.append(("warning", f"Line {number}: '{clean}' may need EXT. rather than INT."))
-            if clean.upper().startswith("EXT.") and re.search(r"\\b(ROOM|OFFICE|KITCHEN|BEDROOM|RESTAURANT|HALLWAY|LIFT|ELEVATOR)\\b", clean, re.I):
-                findings.append(("warning", f"Line {number}: '{clean}' may need INT. rather than EXT."))
-        if clean.upper() in {"CUT TO:", "FADE OUT.", "FADE TO BLACK.", "DISSOLVE TO:"}:
-            if sum(1 for prior in lines[:number] if prior.strip().upper() == clean.upper()) > 1:
-                findings.append(("warning", f"Line {number}: repeated transition '{clean}' may be unnecessary."))
-    if not headings:
-        findings.append(("error", "No standard INT./EXT. scene heading detected."))
-    else:
-        findings.append(("info", f"{len(headings)} scene heading(s) detected."))
-    if re.search(r"\\bCUT TO:|\\bCAMERA (PANS|ZOOMS|MOVES)|THE CAMERA\\b", script, re.I):
-        findings.append(("warning", "Camera directions or frequent transitions found; review whether they are essential."))
-    if not findings:
-        findings.append(("success", "No basic formatting issues detected."))
-    findings.append(("info", "Automated checks are suggestions, not a substitute for screenplay-editor review."))
-    return findings
+from screenplay_validator import validate_screenplay
 
 def generate_scene_1():
     if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
@@ -304,10 +280,11 @@ SCREENPLAY SO FAR:
 {st.session_state.script_text[-14000:]}"""
     with st.spinner("Llama 3 is writing from your approved blueprint…"):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
-    st.session_state.script_text += "\\n\\n" + result
+    st.session_state.script_text += "\n\n" + result
     st.session_state.last_assistant = "Next scene generated from your approved blueprint."
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
+    st.session_state["scene_plan_approval"] = False
 
 def run_script_doctor():
     current = st.session_state.script_text.strip()
