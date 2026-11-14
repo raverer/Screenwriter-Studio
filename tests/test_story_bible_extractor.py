@@ -5,6 +5,7 @@ from pathlib import Path
 
 from story_bible import init_db, list_entries, upsert_entry, upsert_project
 from story_bible_extractor import (
+    MAX_SCREENPLAY_CHARS,
     build_extraction_prompt,
     parse_extraction_response,
     save_extracted_entries,
@@ -124,6 +125,12 @@ class StoryBibleExtractorTests(unittest.TestCase):
             saved = list_entries(project_id, "character", db_path)[0]["data"]
             self.assertEqual(saved["age"], "31")
             self.assertEqual(saved["goal_motivation"], "Find connection")
+
+    def test_prompt_truncates_to_local_context_limit(self):
+        script = "A" * (MAX_SCREENPLAY_CHARS + 500)
+        prompt = build_extraction_prompt(script)
+        self.assertIn("A" * MAX_SCREENPLAY_CHARS, prompt)
+        self.assertNotIn("A" * (MAX_SCREENPLAY_CHARS + 1), prompt)
 
     def test_prompt_requires_a_screenplay_and_is_grounded(self):
         with self.assertRaisesRegex(ValueError, "screenplay"):
