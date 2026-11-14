@@ -18,6 +18,9 @@ def _clear_architecture_state(project_id):
     st.session_state["story_architecture_draft_structure_id"] = None
     st.session_state["story_architecture_approved"] = False
     st.session_state["story_architecture"] = None
+    st.session_state["story_architecture_experiences"] = []
+    st.session_state["story_architecture_engine"] = ""
+    st.session_state["story_architecture_primary_structure"] = "three_act"
 
 
 def render_story_architecture(project_id, project_details, llm_call):
