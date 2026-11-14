@@ -28,14 +28,27 @@ def _invalidate_architecture_approval():
     st.session_state["story_architecture"] = None
 
 
-def render_story_architecture(project_id, project_details, llm_call):
-    """Render recommendation, generation, editing and approval UI.
-
-    Approved architecture remains in Streamlit session state during this phase.
-    Project/database persistence is intentionally handled in a later phase.
-    """
+def render_story_architecture(
+    project_id, project_details, llm_call, saved_architecture=None, persist_callback=None
+):
+    """Render the framework workflow and persist only writer-approved architecture."""
     if st.session_state.get("story_architecture_project_id") != project_id:
         _clear_architecture_state(project_id)
+        if saved_architecture is not None:
+            try:
+                restored = parse_architecture_response(
+                    json.dumps(saved_architecture, ensure_ascii=False),
+                    saved_architecture.get("structure_id"),
+                )
+                st.session_state["story_architecture"] = restored
+                st.session_state["story_architecture_approved"] = True
+                st.session_state["story_architecture_editor"] = json.dumps(
+                    restored, ensure_ascii=False, indent=2
+                )
+                st.session_state["story_architecture_draft_structure_id"] = restored["structure_id"]
+                st.session_state["story_architecture_primary_structure"] = restored["structure_id"]
+            except Exception as exc:
+                st.warning(f"Saved story architecture could not be restored: {exc}")
 
     st.subheader("🏗️ Story Architecture")
     st.caption(
@@ -185,8 +198,10 @@ def render_story_architecture(project_id, project_details, llm_call):
                     )
                     st.session_state["story_architecture"] = validated
                     st.session_state["story_architecture_approved"] = True
+                    if persist_callback:
+                        persist_callback(project_id, validated)
                     st.success(
-                        "Story Architecture approved for this project session."
+                        "Story Architecture validated and saved for this project."
                     )
                 except Exception as exc:
                     st.session_state["story_architecture_approved"] = False
@@ -204,13 +219,10 @@ def render_story_architecture(project_id, project_details, llm_call):
 
     if approved:
         st.success(
-            f"Approved: {get_structure(selected_structure_id)['name']}. "
-            "This approval currently lasts for this app session only."
-        )
-        st.caption(
-            "Project persistence and using this architecture to guide Scene Blueprint "
-            "generation are planned integration steps."
+            f"Approved and saved: {get_structure(selected_structure_id)['name']}."
         )
         return st.session_state.get("story_architecture")
 
+    if persist_callback:
+        persist_callback(project_id, None)
     return None
