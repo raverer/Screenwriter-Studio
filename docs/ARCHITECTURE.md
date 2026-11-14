@@ -37,21 +37,30 @@ The diagram describes the current code organization. It is not a claim that the 
 | `story_bible_extraction_ui.py` | Extraction interaction: request candidates, review/edit JSON, check source/project identity, and approve saving |
 | `screenplay_validator.py` | Deterministic heuristic checks for selected screenplay-format issues |
 | `continuity_checker.py` | Deterministic checks for explicit numeric character-age conflicts against Story Bible ages |
-| `story_structure.py` | Structured reference definitions for seven narrative frameworks, with genre affinities, audience experiences, strengths, cautions, components, and complements |\n| `structure_recommender.py` | Deterministic, explainable recommendations using genre, audience experience, and storytelling engine |\n| `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
+| `story_structure.py` | Structured reference definitions for seven narrative frameworks, with genre affinities, audience experiences, strengths, cautions, components, and complements |
+| `structure_recommender.py` | Deterministic recommendations with score breakdowns, matched reasons, caveats, and complementary structures |
+| `story_architecture.py` | Framework-specific prompt construction, injectable LLM generation, JSON parsing, beat-order validation, and approved-architecture prompt context formatting |
+| `story_architecture_ui.py` | Streamlit interface for recommendations, architecture generation, JSON editing, validation, and writer approval |
+
+| `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
 | `tests/` | Unit tests for persistence, extraction, continuity checks, screenplay validation, and the experimental evaluator |
 
 ## 3. Story structure recommendation layer
 
-The story-structure recommendation layer is implemented as independent Python modules and is not yet connected to the Streamlit project-creation workflow.
+The story-structure layer now includes the seven-framework reference library, a transparent recommender, and a Streamlit story-architecture workflow.
 
 - `story_structure.py` stores the seven framework definitions under stable IDs.
 - `structure_recommender.py` normalizes input aliases, ranks structures, and returns score breakdowns, match reasons, strengths, cautions, and complementary structure IDs.
-- `docs/STORY_STRUCTURE_ENGINE.md` documents the scoring method, usage and research limitations.
-- `tests/test_story_structure.py` covers the reference library and recommendation behavior.
+- `story_architecture.py` builds structure-specific prompts, calls an injected LLM function, parses model JSON, validates required story fields and exact ordered beat coverage, and formats approved architecture as prompt context.
+- `story_architecture_ui.py` provides recommendation inputs, a primary structure selector, generation, a JSON editor, and an explicit validation-and-approval action.
+- `docs/STORY_STRUCTURE_ENGINE.md` documents the framework library, scoring method, blueprint schema, usage and research limitations.
+- `tests/test_story_structure.py` and `tests/test_story_architecture.py` cover recommendation and blueprint behavior.
 
 The recommender uses a transparent maximum 15-point heuristic: 5 points for a storytelling-engine match, up to 6 points for audience-experience matches, and up to 4 points for genre-affinity matches. A score is not a probability or a measured quality estimate. If no criteria match, Three-Act Structure is shown as an explicitly labelled general-purpose fallback.
 
-The next integration phase is to let a writer select and approve a story-wide architecture, persist it with the project workspace, and pass its relevant structural context into scene planning. That integration has not been implemented in this phase.
+The UI passes the project's genre and story brief to the recommender and blueprint generator. The writer can override the recommended framework, edit the generated JSON, and approve it only if the selected framework's components are present exactly once and in the required order. Editing the JSON or changing the selected framework invalidates prior approval.
+
+Approved architecture currently lives in Streamlit session state only. It is not yet persisted across reloads or project switches, and it is not yet passed automatically into the existing Scene Blueprint prompt. Those are later integration steps.
 
 ## 4. Core data flow
 
@@ -66,6 +75,18 @@ The next integration phase is to let a writer select and approve a story-wide ar
 7. The screenplay and workspace state are saved locally.
 
 The approval step keeps the writer in control of the scene plan. The model output is a proposal, not an automatically accepted instruction.
+
+### Story architecture generation and review
+
+1. The writer opens Story Architecture in the active project.
+2. The recommender ranks frameworks using project genre, audience-experience choices, and a selected storytelling engine.
+3. The writer selects or overrides the primary framework.
+4. The application builds a framework-specific JSON prompt using the project's story brief and the framework's exact ordered components.
+5. The injected Ollama call proposes a story-wide blueprint.
+6. The application parses and validates the response: required story fields must be present, the selected structure ID must match, and every expected component must appear exactly once and in order.
+7. The writer edits the JSON and explicitly approves it after validation.
+
+Generation and approval are separate from persistence. The currently approved architecture is stored in Streamlit session state only. It is not yet saved in SQLite or automatically included in scene-generation prompts.
 
 ### Story Bible extraction
 
@@ -90,6 +111,8 @@ These tools do not prove that a screenplay is error-free. They only report issue
 ## 5. Persistence model
 
 The SQLite database is local to the machine by default and is created automatically.
+
+Approved story architectures are not yet stored in SQLite; the current UI keeps them in Streamlit session state. The next persistence phase will add project-scoped storage.
 
 The main tables are:
 
@@ -119,7 +142,7 @@ python -m unittest discover -s tests -v
 
 GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull requests. The suite currently contains 63 passing tests, including coverage for the story-structure knowledge library and recommendation engine. Both CI matrix jobs passed on the implementation commit.
 
-The tests focus on deterministic logic and persistence. They do not replace manual end-to-end testing of the Streamlit interface or tests against every Ollama model.
+The tests focus on deterministic logic, prompt construction, response parsing, beat-order validation, and persistence. They do not replace manual end-to-end testing of the Streamlit interface or tests against every Ollama model. CI also runs Python bytecode compilation to catch syntax errors in application modules.
 
 ## 8. Current limitations and next engineering boundaries
 
