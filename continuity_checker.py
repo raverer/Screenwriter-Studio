@@ -3,9 +3,13 @@ import re
 
 
 def _expected_age(value):
-    match = re.search(r"\b(\d{1,3})\b", str(value or ""))
+    """Accept a precise numeric age, optionally followed by 'years old'."""
+    match = re.fullmatch(
+        r"\s*(\d{1,3})(?:\s*(?:years?|yrs?)(?:\s+old)?)?\s*",
+        str(value or ""),
+        flags=re.IGNORECASE,
+    )
     return int(match.group(1)) if match else None
-
 
 def _age_patterns(character_name):
     name = re.escape(character_name)
