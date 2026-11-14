@@ -1,0 +1,21 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+
+# Local secrets
+.streamlit/secrets.toml
+.env
+
+# Local application data
+screenwriter_studio.db
+screenwriter_studio.db-shm
+screenwriter_studio.db-wal
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
