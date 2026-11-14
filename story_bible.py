@@ -62,6 +62,17 @@ def init_db(db_path=None):
 
             CREATE INDEX IF NOT EXISTS idx_story_bible_project_category
             ON story_bible_entries(project_id, category);
+
+            CREATE TABLE IF NOT EXISTS project_workspaces (
+                project_id INTEGER PRIMARY KEY,
+                screenplay TEXT NOT NULL DEFAULT '',
+                scene_plan TEXT NOT NULL DEFAULT '',
+                scene_plan_approved INTEGER NOT NULL DEFAULT 0,
+                script_before_doctor TEXT NOT NULL DEFAULT '',
+                last_assistant TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
             """
         )
 
@@ -113,6 +124,100 @@ def get_project_metadata(project_id, db_path=None):
         ).fetchone()
     return json.loads(row["metadata_json"]) if row else {}
 
+
+
+def list_projects(db_path=None):
+    """Return saved projects with their basic metadata, newest updated first."""
+    with _connect(db_path) as connection:
+        rows = connection.execute(
+            "SELECT id, title, metadata_json, created_at, updated_at FROM projects ORDER BY updated_at DESC, title COLLATE NOCASE"
+        ).fetchall()
+    projects = []
+    for row in rows:
+        item = dict(row)
+        item["metadata"] = json.loads(item.pop("metadata_json"))
+        projects.append(item)
+    return projects
+
+
+def load_project_workspace(project_id, db_path=None):
+    """Load a saved writing workspace, returning safe defaults for new projects."""
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            """
+            SELECT screenplay, scene_plan, scene_plan_approved,
+                   script_before_doctor, last_assistant, updated_at
+            FROM project_workspaces WHERE project_id = ?
+            """,
+            (project_id,),
+        ).fetchone()
+    if row is None:
+        return {
+            "screenplay": "",
+            "scene_plan": "",
+            "scene_plan_approved": False,
+            "script_before_doctor": "",
+            "last_assistant": "",
+            "updated_at": None,
+        }
+    return {
+        "screenplay": row["screenplay"],
+        "scene_plan": row["scene_plan"],
+        "scene_plan_approved": bool(row["scene_plan_approved"]),
+        "script_before_doctor": row["script_before_doctor"],
+        "last_assistant": row["last_assistant"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def save_project_workspace(
+    project_id,
+    screenplay="",
+    scene_plan="",
+    scene_plan_approved=False,
+    script_before_doctor="",
+    last_assistant="",
+    db_path=None,
+):
+    """Save all resumable writing state for one project."""
+    if project_id is None:
+        raise ValueError("A project must be selected before saving the workspace.")
+    values = {
+        "screenplay": screenplay,
+        "scene_plan": scene_plan,
+        "script_before_doctor": script_before_doctor,
+        "last_assistant": last_assistant,
+    }
+    for field, value in values.items():
+        if not isinstance(value, str):
+            raise ValueError(f"{field} must be text.")
+    now = _now()
+    with _connect(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO project_workspaces(
+                project_id, screenplay, scene_plan, scene_plan_approved,
+                script_before_doctor, last_assistant, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(project_id) DO UPDATE SET
+                screenplay = excluded.screenplay,
+                scene_plan = excluded.scene_plan,
+                scene_plan_approved = excluded.scene_plan_approved,
+                script_before_doctor = excluded.script_before_doctor,
+                last_assistant = excluded.last_assistant,
+                updated_at = excluded.updated_at
+            """,
+            (
+                project_id,
+                screenplay,
+                scene_plan,
+                int(bool(scene_plan_approved)),
+                script_before_doctor,
+                last_assistant,
+                now,
+            ),
+        )
+    return now
 
 def upsert_entry(project_id, category, name, data=None, entry_id=None, db_path=None):
     """Insert a Story Bible record or update an existing record."""
