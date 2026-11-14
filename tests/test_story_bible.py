@@ -10,6 +10,9 @@ from story_bible import (
     get_project_metadata,
     init_db,
     list_entries,
+    list_projects,
+    load_project_workspace,
+    save_project_workspace,
     upsert_entry,
     upsert_project,
 )
@@ -64,6 +67,51 @@ class StoryBibleTests(unittest.TestCase):
         self.assertIn("Find his sister", context)
         self.assertIn("do not contradict", context)
 
+    def test_workspace_is_saved_and_loaded_for_each_project(self):
+        first_id = upsert_project('The First Encounter', {'genre': 'Romance'}, self.db_path)
+        second_id = upsert_project('Night Train', {'genre': 'Thriller'}, self.db_path)
+        save_project_workspace(
+            first_id, screenplay='INT. RESTAURANT - NIGHT',
+            scene_plan='Opening scene plan', scene_plan_approved=True,
+            script_before_doctor='Original draft', last_assistant='Scene generated',
+            db_path=self.db_path,
+        )
+        first = load_project_workspace(first_id, self.db_path)
+        second = load_project_workspace(second_id, self.db_path)
+        self.assertEqual(first['screenplay'], 'INT. RESTAURANT - NIGHT')
+        self.assertEqual(first['scene_plan'], 'Opening scene plan')
+        self.assertTrue(first['scene_plan_approved'])
+        self.assertEqual(first['script_before_doctor'], 'Original draft')
+        self.assertEqual(first['last_assistant'], 'Scene generated')
+        self.assertEqual(second['screenplay'], '')
+        self.assertFalse(second['scene_plan_approved'])
+
+    def test_workspace_updates_existing_saved_state(self):
+        project_id = upsert_project('Test', db_path=self.db_path)
+        save_project_workspace(project_id, screenplay='Draft 1', db_path=self.db_path)
+        save_project_workspace(
+            project_id, screenplay='Draft 2', scene_plan='Next scene',
+            scene_plan_approved=False, db_path=self.db_path
+        )
+        loaded = load_project_workspace(project_id, self.db_path)
+        self.assertEqual(loaded['screenplay'], 'Draft 2')
+        self.assertEqual(loaded['scene_plan'], 'Next scene')
+
+    def test_list_projects_returns_metadata_and_titles(self):
+        upsert_project('Project A', {'genre': 'Drama'}, self.db_path)
+        upsert_project('Project B', {'genre': 'Comedy'}, self.db_path)
+        projects = list_projects(self.db_path)
+        titles = {item['title'] for item in projects}
+        self.assertEqual(titles, {'Project A', 'Project B'})
+        project_a = next(item for item in projects if item['title'] == 'Project A')
+        self.assertEqual(project_a['metadata']['genre'], 'Drama')
+
+    def test_workspace_requires_project_and_text_fields(self):
+        with self.assertRaisesRegex(ValueError, 'project'):
+            save_project_workspace(None, screenplay='Draft', db_path=self.db_path)
+        project_id = upsert_project('Test', db_path=self.db_path)
+        with self.assertRaisesRegex(ValueError, 'screenplay'):
+            save_project_workspace(project_id, screenplay=None, db_path=self.db_path)
     def test_empty_project_and_invalid_category_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "title"):
             upsert_project(" ", db_path=self.db_path)
