@@ -81,6 +81,10 @@ class StructureRecommenderTests(unittest.TestCase):
         result = recommend_structures(storytelling_engine="Hero's Journey")
         self.assertEqual(result["recommendations"][0]["structure_id"], "monomyth")
 
+    def test_stable_engine_id_from_streamlit_selector_is_accepted(self):
+        result = recommend_structures(storytelling_engine="escalating_danger")
+        self.assertEqual(result["recommendations"][0]["structure_id"], "fichtean_curve")
+
     def test_unknown_storytelling_engine_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unknown storytelling_engine"):
             recommend_structures(storytelling_engine="mysterious plot engine")
