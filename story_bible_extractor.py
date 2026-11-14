@@ -31,63 +31,22 @@ occupations, relationships, locations, props, chronology or motivations.
 When a fact is unknown or ambiguous, omit that field. Use concise plain-text
 strings for all data values. Keep exact character and location names consistent.
 Do not include dialogue as a character fact unless it establishes a durable fact.
-Do not create an entry for incidental objects unless they matter to the story.
+Do not create entries for incidental objects unless they matter to the story.
 
-Return ONLY valid JSON with this structure:
-{{
-  "entries": [
-    {{
-      "category": "character",
-      "name": "Exact character name",
-      "data": {{
-        "age": "30",
-        "occupation_or_role": "Software engineer",
-        "personality": "Reserved and shy",
-        "goal_motivation": "Wants to build a meaningful relationship",
-        "relationships": "On a date with Mira",
-        "continuity_notes": "Wears a silver wristwatch"
-      }}
-    }},
-    {{
-      "category": "location",
-      "name": "Exact location name",
-      "data": {{
-        "place_type": "Exterior",
-        "description": "A rocky shoreline",
-        "atmosphere_time": "Night",
-        "key_details": "Waves and a rocky shoreline"
-      }}
-    }},
-    {{
-      "category": "prop",
-      "name": "Silver wristwatch",
-      "data": {{
-        "description": "A silver wristwatch",
-        "owner_custodian": "Aarav",
-        "story_significance": "A recurring visual detail",
-        "continuity_notes": "Keep with Aarav"
-      }}
-    }},
-    {{
-      "category": "timeline",
-      "name": "First date",
-      "data": {{
-        "when": "Night",
-        "event": "Aarav and Mira meet for a date",
-        "characters_involved": "Aarav, Mira",
-        "consequences": "They walk together along the beach"
-      }}
-    }}
-  ]
-}}
+Return ONLY a JSON object with this structure:
+{{"entries": [{{"category": "character|location|prop|timeline", "name": "entity name", "data": {{"field_name": "fact from screenplay"}}}}]}}
 
-Use only the category-specific field names shown above. The examples illustrate
-the structure only; do not copy facts that are absent from the screenplay.
+Allowed category-specific data fields:
+- character: age, occupation_or_role, personality, goal_motivation, relationships, continuity_notes
+- location: place_type, description, atmosphere_time, key_details
+- prop: description, owner_custodian, story_significance, continuity_notes
+- timeline: when, event, characters_involved, consequences
+
+Use only the fields allowed for that category. Do not copy placeholder text.
 If no reliable facts can be extracted, return {{"entries": []}}.
 
 SCREENPLAY:
 {screenplay[:18000]}"""
-
 
 def _extract_json_object(raw):
     if not isinstance(raw, str) or not raw.strip():
