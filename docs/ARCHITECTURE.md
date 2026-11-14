@@ -41,9 +41,8 @@ The diagram describes the current code organization. It is not a claim that the 
 | `structure_recommender.py` | Deterministic recommendations with score breakdowns, matched reasons, caveats, and complementary structures |
 | `story_architecture.py` | Framework-specific prompt construction, injectable LLM generation, JSON parsing, beat-order validation, and approved-architecture prompt context formatting |
 | `story_architecture_ui.py` | Streamlit interface for recommendations, architecture generation, JSON editing, validation, and writer approval |
-
 | `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
-| `tests/` | Unit tests for persistence, extraction, continuity checks, screenplay validation, and the experimental evaluator |
+| `tests/` | Unit tests for persistence, extraction, continuity checks, screenplay validation, structure recommendations, and architecture generation |
 
 ## 3. Story structure recommendation layer
 
