@@ -112,6 +112,7 @@ class StoryBibleTests(unittest.TestCase):
         project_id = upsert_project('Test', db_path=self.db_path)
         with self.assertRaisesRegex(ValueError, 'screenplay'):
             save_project_workspace(project_id, screenplay=None, db_path=self.db_path)
+
     def test_empty_project_and_invalid_category_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "title"):
             upsert_project(" ", db_path=self.db_path)
