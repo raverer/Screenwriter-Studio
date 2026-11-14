@@ -19,7 +19,8 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
 - **Export:** download screenplay drafts as DOCX or PDF.
 - **Story structure knowledge library (Python module):** structured definitions for seven narrative frameworks, including their core engines, genre affinities, audience experiences, strengths, cautions, and structural components.
-- **Explainable structure recommendations (Python API):** rank frameworks using genre, intended audience experience, and dominant storytelling engine; show match reasons, score breakdowns, cautions, and complementary structures. This backend feature is not yet connected to the Streamlit UI.
+- **Explainable structure recommendations:** rank frameworks using project genre, intended audience experience, and dominant storytelling engine; show match reasons, heuristic score breakdowns, cautions, and complementary structures.
+- **Story Architecture Blueprint:** generate a structure-specific story-wide outline, edit its JSON, and explicitly approve it after validation of required fields and the exact ordered beat sequence. Approval currently remains in the active Streamlit session and is not yet persisted across reloads or passed into scene-generation prompts.
 
 ## Architecture
 
@@ -32,7 +33,9 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `story_structure.py` — structured reference definitions for seven narrative frameworks.
 - `structure_recommender.py` — explainable, deterministic recommendations based on genre, audience experience, and storytelling engine.
-- `tests/` — unit tests for persistence, extraction, continuity checks, screenplay validation, structure recommendations, and the deferred experimental evaluator.
+- `story_architecture.py` — framework-specific prompt generation, injectable Ollama workflow, strict JSON parsing and beat-order validation.
+- `story_architecture_ui.py` — Streamlit recommendation, generation, edit and approval interface.
+- `tests/` — unit tests for persistence, extraction, continuity checks, screenplay validation, structure recommendations, architecture generation and the deferred experimental evaluator.
 
 For the component diagram, data flows, persistence model, and implementation boundaries, see [the architecture document](docs/ARCHITECTURE.md). For the seven frameworks and recommendation scoring method, see [the Story Structure Engine guide](docs/STORY_STRUCTURE_ENGINE.md).
 
