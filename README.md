@@ -9,6 +9,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Local LLM writing:** generate screenplay scenes using a locally running Ollama model.
 - **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
+- **Automatic Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
 - **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
 - **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
@@ -20,6 +21,8 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `app.py` — Streamlit application, project setup, generation workflow, and exports.
 - `story_bible.py` — SQLite persistence layer for projects and Story Bible records. Independent of Streamlit and Ollama.
 - `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
+- `story_bible_extractor.py` — conservative extraction prompt, JSON/schema validation, and explicit-approval persistence.
+- `story_bible_extraction_ui.py` — extraction, review, edit, conflict confirmation, and save workflow.
 - `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
 - `tests/` — unit tests for persistence, validation, and experimental evaluator logic.
