@@ -87,7 +87,7 @@ The screenplay validator and continuity checker are deterministic Python modules
 
 These tools do not prove that a screenplay is error-free. They only report issues covered by their implemented rules.
 
-## 4. Persistence model
+## 5. Persistence model
 
 The SQLite database is local to the machine by default and is created automatically.
 
@@ -101,7 +101,7 @@ A project can have one workspace row and multiple Story Bible entries. Story Bib
 
 The database path can be changed with `SCREENWRITER_DB_PATH`. The default database file is excluded from Git so that screenplay drafts and project facts are not committed accidentally.
 
-## 5. Local model integration
+## 6. Local model integration
 
 The application discovers available Ollama models through `/api/tags` and sends chat requests to `/api/chat`. The host can be configured with `OLLAMA_HOST`; the default is `http://localhost:11434`.
 
@@ -109,7 +109,7 @@ With the default local Ollama setup, prompts and screenplay text are sent to the
 
 The application currently uses direct HTTP requests from `app.py`; there is not yet a standalone model-client or provider abstraction.
 
-## 6. Testing and continuous integration
+## 7. Testing and continuous integration
 
 Run the unit tests from the repository root:
 
@@ -121,7 +121,7 @@ GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull
 
 The tests focus on deterministic logic and persistence. They do not replace manual end-to-end testing of the Streamlit interface or tests against every Ollama model.
 
-## 7. Current limitations and next engineering boundaries
+## 8. Current limitations and next engineering boundaries
 
 - `app.py` still combines UI rendering, workflow orchestration, model request code and document export. Separating these responsibilities is a future refactoring opportunity.
 - There is no RAG pipeline, vector database or semantic retrieval layer. Story Bible context is currently included as bounded text.
