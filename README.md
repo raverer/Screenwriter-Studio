@@ -8,6 +8,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 
 - **Local LLM writing:** generate screenplay scenes using a locally running Ollama model.
 - **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
+- **Project library and resume:** switch between saved projects. Project settings, screenplay drafts, scene blueprints, approval state, Script Doctor comparison drafts, and studio notes autosave locally to SQLite.
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
 - **Automatic Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
 - **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
@@ -20,7 +21,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 ## Architecture
 
 - `app.py` — Streamlit application, project setup, generation workflow, and exports.
-- `story_bible.py` — SQLite persistence layer for projects and Story Bible records. Independent of Streamlit and Ollama.
+- `story_bible.py` — SQLite persistence layer for project metadata, resumable writing workspaces, and Story Bible records. Independent of Streamlit and Ollama.
 - `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
 - `story_bible_extractor.py` — extraction prompt, JSON/schema validation, and explicit-approval persistence.
 - `story_bible_extraction_ui.py` — extract, review, edit, resolve conflicts, and approve saving.
@@ -74,9 +75,14 @@ streamlit run app.py
 
 To use a different Ollama host, set `OLLAMA_HOST` before launching the app. The default is `http://localhost:11434`.
 
-## Story Bible storage
+## Project workspaces and Story Bible storage
 
-Story Bible records are stored locally in `screenwriter_studio.db` next to the application. The database is created automatically and is excluded from Git by `.gitignore`.
+Saved projects appear in the **Saved projects** selector in the sidebar. Choose a project and click **Load selected project** to restore its settings, screenplay, Scene Blueprint, approval status, Script Doctor comparison draft, studio notes, and Story Bible. Use **New project / Clear workspace** before starting another project. The active project title is locked to prevent accidentally moving work into a different project. Workspace changes autosave locally as you use the app.
+
+Existing projects created before workspace persistence was added keep their project settings and Story Bible records. They have no previously saved screenplay workspace to restore; paste or recreate an old draft once and it will autosave from then on.
+
+
+Story Bible records are stored locally in `screenwriter_studio.db` next to the application. The database is created automatically and is excluded from Git by `.gitignore`. It stores project metadata, writing workspaces, and Story Bible entries.
 
 To store the database elsewhere, set `SCREENWRITER_DB_PATH` to a database file path before launching the app.
 
