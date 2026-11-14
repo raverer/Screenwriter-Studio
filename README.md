@@ -1,5 +1,7 @@
 # Screenwriter Studio
 
+![Python tests](https://github.com/raverer/Screenwriter-Studio/actions/workflows/ci.yml/badge.svg?branch=fix/groq-model-selection)
+
 A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, SQLite, and Ollama.
 
 Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, preserve project facts, check selected continuity rules, and resume work across sessions.
@@ -27,6 +29,8 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
 - `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `tests/` — unit tests for persistence, extraction, continuity checks, validation, and the deferred experimental evaluator.
+
+For the component diagram, data flows, persistence model, and implementation boundaries, see [the architecture document](docs/ARCHITECTURE.md).
 
 The Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Semantic retrieval / RAG is not implemented yet.
 
