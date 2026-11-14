@@ -363,7 +363,7 @@ plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_wi
 plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
 validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
 
-def project_context():
+def project_context(research_query=""):
     context = f"""PROJECT
 Title: {title or 'Untitled'}
 Format: {project_type}
@@ -379,6 +379,33 @@ Audience / genre guidance: {trend_style or 'Use genre conventions without clich�
     bible_context = format_story_bible_context(current_project_id)
     if bible_context:
         context += "\n\n" + bible_context
+
+    approved_architecture = load_project_architecture(current_project_id)
+    if approved_architecture:
+        try:
+            context += "\n\n" + format_architecture_context(approved_architecture)
+        except (TypeError, ValueError) as exc:
+            st.warning(f"Saved Story Architecture was not added to the prompt: {exc}")
+
+    if st.session_state.get("use_research_context") and current_project_id is not None:
+        try:
+            documents = list_research_documents(current_project_id)
+            if documents:
+                query = (context + "\n\n" + research_query).strip()[:4000]
+                results = retrieve_relevant_chunks(
+                    current_project_id,
+                    query,
+                    st.session_state.get("research_embedding_model", DEFAULT_EMBEDDING_MODEL),
+                    lambda texts, embedding_model: embed_texts(
+                        texts, embedding_model, OLLAMA_URL
+                    ),
+                    top_k=4,
+                )
+                research_context = format_research_context(results)
+                if research_context:
+                    context += "\n\n" + research_context
+        except Exception as exc:
+            st.warning(f"Research retrieval was skipped: {exc}")
     return context
 
 system_prompt = build_system_prompt(language.strip() or "English", project_type)
