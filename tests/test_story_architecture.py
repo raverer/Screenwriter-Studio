@@ -57,7 +57,7 @@ class StoryArchitecturePromptTests(unittest.TestCase):
         self.assertIn("Save the Cat", prompt)
         self.assertIn("Opening Image", prompt)
         self.assertIn("Final Image", prompt)
-        self.assertIn("exactly 15 beats", prompt)
+        self.assertIn('"beats" must contain exactly 15 items.', prompt)
         self.assertIn("The Last Monsoon", prompt)
         self.assertIn("Family drama", prompt)
 
@@ -67,7 +67,7 @@ class StoryArchitecturePromptTests(unittest.TestCase):
         self.assertIn("Shō — Development", prompt)
         self.assertIn("Ten — Twist or contrast", prompt)
         self.assertIn("Ketsu — Conclusion or connection", prompt)
-        self.assertIn("exactly 4 beats", prompt)
+        self.assertIn('"beats" must contain exactly 4 items.', prompt)
 
     def test_prompt_includes_structure_specific_cautions(self):
         prompt = build_architecture_prompt("kishotenketsu")
