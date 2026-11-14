@@ -11,6 +11,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
 - **Automatic Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
 - **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
+- **Automatic Story Bible extraction:** the local model proposes character, location, prop, and timeline records from a screenplay. Writers can edit the JSON and explicitly approve saving; matching existing records require separate overwrite approval.
 - **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
@@ -21,11 +22,13 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `app.py` — Streamlit application, project setup, generation workflow, and exports.
 - `story_bible.py` — SQLite persistence layer for projects and Story Bible records. Independent of Streamlit and Ollama.
 - `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
+- `story_bible_extractor.py` — extraction prompt, JSON/schema validation, and explicit-approval persistence.
+- `story_bible_extraction_ui.py` — extract, review, edit, resolve conflicts, and approve saving.
 - `story_bible_extractor.py` — conservative extraction prompt, JSON/schema validation, and explicit-approval persistence.
 - `story_bible_extraction_ui.py` — extraction, review, edit, conflict confirmation, and save workflow.
 - `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
-- `tests/` — unit tests for persistence, validation, and experimental evaluator logic.
+- `tests/` — unit tests for persistence, extraction, continuity checks, validation, and the deferred experimental evaluator.
 
 The Story Bible is currently **manually maintained** by the writer. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Automatic fact extraction and semantic retrieval/RAG are not implemented yet.
 
