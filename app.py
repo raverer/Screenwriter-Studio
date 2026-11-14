@@ -23,10 +23,22 @@ from story_bible import (
     load_project_workspace,
     save_project_workspace,
     upsert_project,
+    load_project_architecture,
+    save_project_architecture,
+    delete_project_architecture,
 )
 from story_bible_ui import render_story_bible
 from story_bible_extraction_ui import render_story_bible_extraction
 from story_architecture_ui import render_story_architecture
+from story_architecture import format_architecture_context
+from research_rag import (
+    DEFAULT_EMBEDDING_MODEL,
+    format_research_context,
+    list_research_documents,
+    retrieve_relevant_chunks,
+    embed_texts,
+)
+from research_rag_ui import render_research_library
 
 init_db()
 
@@ -183,6 +195,12 @@ else:
 
 temperature = st.sidebar.slider("Creativity", 0.1, 1.2, 0.7, 0.1)
 max_tokens = st.sidebar.slider("Maximum output tokens", 512, 4096, 2048, step=256)
+st.sidebar.checkbox(
+    "Use retrieved research in AI prompts",
+    value=False,
+    key="use_research_context",
+    help="When enabled, relevant excerpts from this project's Research Library are retrieved and cited in the prompt context."
+)
 
 st.sidebar.markdown("### Saved projects")
 saved_projects = list_projects()
@@ -366,7 +384,7 @@ Audience / genre guidance: {trend_style or 'Use genre conventions without clich√
 system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
 def create_scene_plan(previous_script=""):
-    context = project_context()
+    context = project_context(previous_script[-3000:] if previous_script else "")
     task = (f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\nSCREENPLAY SO FAR:\n{previous_script[-9000:]}"
             if previous_script else
             "Plan the opening scene. Establish the protagonist through behaviour, create a dramatic situation and a compelling hook without rushing the main premise.")
@@ -541,8 +559,15 @@ render_story_architecture(
     lambda system, prompt: call_ollama(
         system, prompt, model, 0.35, 2400, response_format="json"
     ),
+    saved_architecture=load_project_architecture(current_project_id),
+    persist_callback=lambda project_id, architecture: (
+        delete_project_architecture(project_id)
+        if architecture is None
+        else save_project_architecture(project_id, architecture)
+    ),
 )
 
+render_research_library(current_project_id, OLLAMA_URL)
 render_story_bible(current_project_id)
 left, right = st.columns([2, 1])
 with left:
