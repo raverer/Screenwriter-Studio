@@ -10,6 +10,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
 - **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
+- **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
 - **Export:** download screenplay drafts as DOCX or PDF.
@@ -19,10 +20,11 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `app.py` — Streamlit application, project setup, generation workflow, and exports.
 - `story_bible.py` — SQLite persistence layer for projects and Story Bible records. Independent of Streamlit and Ollama.
 - `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
-- `screenplay_validator.py` — deterministic, dependency-free screenplay checks.
+- `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
+- `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
 - `tests/` — unit tests for persistence, validation, and experimental evaluator logic.
 
-The Story Bible is currently **manually maintained** by the writer. Automatic fact extraction and semantic retrieval/RAG are not implemented yet.
+The Story Bible is currently **manually maintained** by the writer. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Automatic fact extraction and semantic retrieval/RAG are not implemented yet.
 
 ## Requirements
 
@@ -93,7 +95,7 @@ python -m unittest discover -s tests -v
 
 - Story Bible facts must be entered and maintained by the writer; automatic extraction is a future enhancement.
 - Continuity information is added to the prompt as bounded text context. A retrieval-augmented generation (RAG) pipeline is not implemented yet.
-- Screenplay formatting checks are heuristic and should be reviewed by a human.
+- Screenplay formatting and continuity checks use narrow deterministic rules; review all findings and missed cases manually.
 - Local model output quality and response speed depend on the selected model and available hardware.
 - The scene evaluator is experimental and is not part of the active Streamlit workflow.
 
