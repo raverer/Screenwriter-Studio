@@ -54,6 +54,29 @@ The score is not a probability, confidence estimate, empirical statistic, or qua
 
 If none of the supplied criteria match a framework, the recommender returns Three-Act Structure as an explicitly labelled general-purpose fallback. This is not reported as a positive genre match.
 
+## Story Architecture Blueprint generation
+
+The Streamlit app now includes a Story Architecture section for an active project.
+
+1. The writer chooses intended audience experiences and a dominant storytelling engine.
+2. The app shows the top heuristic structure recommendations based on those choices and the project's genre.
+3. The writer selects a primary structure, including the option to override the recommendation.
+4. Ollama generates a story-wide blueprint using that structure's exact component sequence.
+5. The writer can edit the JSON blueprint.
+6. The application validates the structure ID, required story fields, beat count, and exact component order before approval.
+
+The common blueprint schema contains:
+
+- Story title, dramatic question, theme, central conflict, stakes and ending type.
+- Protagonist starting state, external goal, internal need and ending state.
+- One beat object per component, containing its story event, dramatic function, cause-and-effect link, protagonist shift and optional open questions.
+
+The component sequences remain structure-specific: for example, Save the Cat requires 15 beats, Kishōtenketsu requires four, and the Monomyth uses the 12 stages defined in the library.
+
+The LLM call is injected into `generate_architecture()`, so parsing and validation can be unit-tested with a fake model response without requiring Ollama in CI. Malformed or incomplete model output is rejected rather than silently approved.
+
+**Current boundary:** a writer-approved architecture is held in Streamlit session state only. It is not yet persisted to SQLite or automatically included in Scene Blueprint and screenplay-generation prompts. The next phase is project-scoped persistence and safe workspace restoration.
+
 ## Python usage
 
 ```python
