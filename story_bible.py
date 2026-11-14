@@ -63,6 +63,13 @@ def init_db(db_path=None):
             CREATE INDEX IF NOT EXISTS idx_story_bible_project_category
             ON story_bible_entries(project_id, category);
 
+            CREATE TABLE IF NOT EXISTS project_story_architectures (
+                project_id INTEGER PRIMARY KEY,
+                architecture_json TEXT NOT NULL,
+                approved_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS project_workspaces (
                 project_id INTEGER PRIMARY KEY,
                 screenplay TEXT NOT NULL DEFAULT '',
@@ -343,3 +350,49 @@ def format_story_bible_context(project_id, db_path=None, max_chars=7000):
     if len(formatted) > max_chars:
         formatted = formatted[:max_chars].rsplit("\n", 1)[0] + "\n[Additional Story Bible facts omitted from this prompt.]"
     return formatted
+
+
+def save_project_architecture(project_id, architecture, db_path=None):
+    """Persist one writer-approved story architecture for its project."""
+    if project_id is None:
+        raise ValueError("A project must be selected before saving story architecture.")
+    if not isinstance(architecture, dict):
+        raise ValueError("Story architecture must be a dictionary.")
+    encoded = json.dumps(architecture, ensure_ascii=False)
+    now = _now()
+    with _connect(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO project_story_architectures(project_id, architecture_json, approved_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(project_id) DO UPDATE SET
+                architecture_json = excluded.architecture_json,
+                approved_at = excluded.approved_at
+            """,
+            (project_id, encoded, now),
+        )
+    return now
+
+
+def load_project_architecture(project_id, db_path=None):
+    """Load the approved architecture belonging to one project, if it exists."""
+    if project_id is None:
+        return None
+    with _connect(db_path) as connection:
+        row = connection.execute(
+            "SELECT architecture_json FROM project_story_architectures WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+    return json.loads(row["architecture_json"]) if row else None
+
+
+def delete_project_architecture(project_id, db_path=None):
+    """Remove the approved architecture for one project."""
+    if project_id is None:
+        return False
+    with _connect(db_path) as connection:
+        cursor = connection.execute(
+            "DELETE FROM project_story_architectures WHERE project_id = ?",
+            (project_id,),
+        )
+        return cursor.rowcount > 0
