@@ -34,7 +34,9 @@ Do not include dialogue as a character fact unless it establishes a durable fact
 Do not create entries for incidental objects unless they matter to the story.
 
 Return ONLY a JSON object with this structure:
-{{"entries": [{{"category": "character|location|prop|timeline", "name": "entity name", "data": {{"field_name": "fact from screenplay"}}}}]}}
+{{"entries": [{{"category": "one exact category", "name": "entity name", "data": {{}}}}]}}
+
+For each entry choose exactly one category: character, location, prop, or timeline.
 
 Allowed category-specific data fields:
 - character: age, occupation_or_role, personality, goal_motivation, relationships, continuity_notes
@@ -75,7 +77,7 @@ def parse_extraction_response(raw):
         category = entry.get("category")
         name = entry.get("name")
         data = entry.get("data")
-        if category not in FIELD_SCHEMAS:
+        if not isinstance(category, str) or category not in FIELD_SCHEMAS:
             raise ValueError(f"Entry {index} has an unsupported category: {category!r}.")
         if not isinstance(name, str) or not name.strip():
             raise ValueError(f"Entry {index} must have a non-empty name.")
