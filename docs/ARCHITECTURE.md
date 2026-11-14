@@ -37,10 +37,23 @@ The diagram describes the current code organization. It is not a claim that the 
 | `story_bible_extraction_ui.py` | Extraction interaction: request candidates, review/edit JSON, check source/project identity, and approve saving |
 | `screenplay_validator.py` | Deterministic heuristic checks for selected screenplay-format issues |
 | `continuity_checker.py` | Deterministic checks for explicit numeric character-age conflicts against Story Bible ages |
-| `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
+| `story_structure.py` | Structured reference definitions for seven narrative frameworks, with genre affinities, audience experiences, strengths, cautions, components, and complements |\n| `structure_recommender.py` | Deterministic, explainable recommendations using genre, audience experience, and storytelling engine |\n| `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
 | `tests/` | Unit tests for persistence, extraction, continuity checks, screenplay validation, and the experimental evaluator |
 
-## 3. Core data flow
+## 3. Story structure recommendation layer
+
+The story-structure recommendation layer is implemented as independent Python modules and is not yet connected to the Streamlit project-creation workflow.
+
+- `story_structure.py` stores the seven framework definitions under stable IDs.
+- `structure_recommender.py` normalizes input aliases, ranks structures, and returns score breakdowns, match reasons, strengths, cautions, and complementary structure IDs.
+- `docs/STORY_STRUCTURE_ENGINE.md` documents the scoring method, usage and research limitations.
+- `tests/test_story_structure.py` covers the reference library and recommendation behavior.
+
+The recommender uses a transparent maximum 15-point heuristic: 5 points for a storytelling-engine match, up to 6 points for audience-experience matches, and up to 4 points for genre-affinity matches. A score is not a probability or a measured quality estimate. If no criteria match, Three-Act Structure is shown as an explicitly labelled general-purpose fallback.
+
+The next integration phase is to let a writer select and approve a story-wide architecture, persist it with the project workspace, and pass its relevant structural context into scene planning. That integration has not been implemented in this phase.
+
+## 4. Core data flow
 
 ### Scene planning and generation
 
