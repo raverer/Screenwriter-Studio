@@ -1,6 +1,8 @@
 """Structured extraction of Story Bible candidates from screenplay text."""
 import json
 
+from story_bible import list_entries, upsert_entry
+
 FIELD_SCHEMAS = {
     "character": {
         "age", "occupation_or_role", "personality", "goal_motivation",
@@ -146,3 +148,59 @@ def parse_extraction_response(raw):
         })
 
     return records
+
+
+
+def save_extracted_entries(project_id, records, allow_overwrite=False, db_path=None):
+    """Persist reviewed candidates, refusing name collisions unless approved.
+
+    Returns counts for created and updated records. The caller must invoke this
+    only after the user explicitly approves the reviewed extraction.
+    """
+    if project_id is None:
+        raise ValueError("A project must be selected before saving Story Bible entries.")
+    if not isinstance(records, list):
+        raise ValueError("Extraction records must be a list.")
+
+    existing = list_entries(project_id, db_path=db_path)
+    existing_by_key = {
+        (item["category"], item["name"].strip().casefold()): item
+        for item in existing
+    }
+    conflicts = [
+        record for record in records
+        if (record["category"], record["name"].strip().casefold()) in existing_by_key
+    ]
+    if conflicts and not allow_overwrite:
+        names = ", ".join(item["name"] for item in conflicts)
+        raise ValueError(
+            "Existing Story Bible entries would be updated: "
+            + names
+            + ". Explicitly approve updating matching records to continue."
+        )
+
+    created = 0
+    updated = 0
+    for record in records:
+        key = (record["category"], record["name"].strip().casefold())
+        match = existing_by_key.get(key)
+        if match:
+            upsert_entry(
+                project_id,
+                record["category"],
+                record["name"],
+                record["data"],
+                entry_id=match["id"],
+                db_path=db_path,
+            )
+            updated += 1
+        else:
+            upsert_entry(
+                project_id,
+                record["category"],
+                record["name"],
+                record["data"],
+                db_path=db_path,
+            )
+            created += 1
+    return {"created": created, "updated": updated}
