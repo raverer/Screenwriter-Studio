@@ -1,6 +1,6 @@
 # Screenwriter Studio
 
-![Python tests](https://github.com/raverer/Screenwriter-Studio/actions/workflows/ci.yml/badge.svg?branch=fix/groq-model-selection)
+![Python tests](https://github.com/raverer/Screenwriter-Studio/actions/workflows/ci.yml/badge.svg?branch=main)
 
 A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, SQLite, and Ollama.
 
