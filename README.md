@@ -114,11 +114,12 @@ python -m unittest discover -s tests -v
 
 ## Continuous Integration
 
-GitHub Actions runs the unit test suite on pushes and pull requests using Python 3.10 and 3.11. The workflow is defined in `.github/workflows/ci.yml`.
+GitHub Actions compiles the Python modules and runs the unit test suite on pushes and pull requests using Python 3.10 and 3.11. The workflow is defined in `.github/workflows/ci.yml`. The current suite contains 95 passing tests.
 
-Run the same test command locally before pushing:
+Run the same checks locally before pushing:
 
 ```bash
+python -m compileall -q .
 python -m unittest discover -s tests -v
 ```
 
