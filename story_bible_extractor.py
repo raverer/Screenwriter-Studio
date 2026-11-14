@@ -150,7 +150,7 @@ def save_extracted_entries(project_id, records, allow_overwrite=False, db_path=N
                 project_id,
                 record["category"],
                 record["name"],
-                record["data"],
+                {**match["data"], **record["data"]},
                 entry_id=match["id"],
                 db_path=db_path,
             )
