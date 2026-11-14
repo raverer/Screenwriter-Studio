@@ -23,6 +23,11 @@ def _clear_architecture_state(project_id):
     st.session_state["story_architecture_primary_structure"] = "three_act"
 
 
+def _invalidate_architecture_approval():
+    st.session_state["story_architecture_approved"] = False
+    st.session_state["story_architecture"] = None
+
+
 def render_story_architecture(project_id, project_details, llm_call):
     """Render recommendation, generation, editing and approval UI.
 
@@ -166,6 +171,7 @@ def render_story_architecture(project_id, project_details, llm_call):
                     "Edit story events, character arc, conflict, stakes and beat details. "
                     "The structure ID and exact ordered component list must remain valid."
                 ),
+                on_change=_invalidate_architecture_approval,
             )
             if st.button(
                 "✓ Validate and approve Story Architecture",
@@ -188,6 +194,14 @@ def render_story_architecture(project_id, project_details, llm_call):
                     st.error(f"Architecture validation failed: {exc}")
 
     approved = st.session_state.get("story_architecture_approved", False)
+    approved_architecture = st.session_state.get("story_architecture")
+    if approved and (
+        not isinstance(approved_architecture, dict)
+        or approved_architecture.get("structure_id") != selected_structure_id
+    ):
+        _invalidate_architecture_approval()
+        approved = False
+
     if approved:
         st.success(
             f"Approved: {get_structure(selected_structure_id)['name']}. "
