@@ -3,6 +3,8 @@ import json
 
 from story_bible import list_entries, upsert_entry
 
+MAX_SCREENPLAY_CHARS = 8000
+
 FIELD_SCHEMAS = {
     "character": {
         "age", "occupation_or_role", "personality", "goal_motivation",
@@ -48,7 +50,7 @@ Use only the fields allowed for that category. Do not copy placeholder text.
 If no reliable facts can be extracted, return {{"entries": []}}.
 
 SCREENPLAY:
-{screenplay[:18000]}"""
+{screenplay[:MAX_SCREENPLAY_CHARS]}"""
 
 def _extract_json_object(raw):
     if not isinstance(raw, str) or not raw.strip():
