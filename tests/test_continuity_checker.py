@@ -41,8 +41,8 @@ class ContinuityCheckerTests(unittest.TestCase):
 
     def test_supports_common_age_phrasings(self):
         script = (
-            "Aarav (32) enters.\\n"
-            "A 31-year-old Aarav waits outside.\\n"
+            "Aarav (32) enters.\n"
+            "A 31-year-old Aarav waits outside.\n"
             "Aarav is 33 years old."
         )
         result = check_continuity(script, self.entries)
