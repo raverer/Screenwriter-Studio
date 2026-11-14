@@ -35,7 +35,7 @@ class StoryBibleTests(unittest.TestCase):
         project_id = upsert_project("Test Film", db_path=self.db_path)
         entry_id = upsert_entry(
             project_id, "character", "Aarav",
-            {"age": "28", "occupation": "Software engineer"}, db_path=self.db_path
+            {"age": "30", "occupation": "Software engineer"}, db_path=self.db_path
         )
         records = list_entries(project_id, "character", self.db_path)
         self.assertEqual(records[0]["id"], entry_id)
