@@ -26,6 +26,7 @@ from story_bible import (
 )
 from story_bible_ui import render_story_bible
 from story_bible_extraction_ui import render_story_bible_extraction
+from story_architecture_ui import render_story_architecture
 
 init_db()
 
@@ -521,6 +522,27 @@ if st.session_state.get("project_loaded_notice"):
     st.success(st.session_state.pop("project_loaded_notice"))
 st.caption(f"Local model: {model} · Format: {project_type} · Language: {language}")
 st.caption("Project settings, screenplay drafts, scene plans and Script Doctor comparisons autosave locally.")
+
+render_story_architecture(
+    current_project_id,
+    {
+        "title": title,
+        "format": project_type,
+        "language": language,
+        "genre": genre,
+        "tone": tone,
+        "characters": characters,
+        "setting": setting,
+        "logline": logline,
+        "notes": notes,
+        "writing_style": writing_style,
+        "audience_guidance": trend_style,
+    },
+    lambda system, prompt: call_ollama(
+        system, prompt, model, 0.35, 2400, response_format="json"
+    ),
+)
+
 render_story_bible(current_project_id)
 left, right = st.columns([2, 1])
 with left:
