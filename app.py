@@ -17,7 +17,6 @@ from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragrap
 from continuity_checker import check_continuity
 from story_bible import (
     format_story_bible_context,
-    get_project_metadata,
     init_db,
     list_entries,
     list_projects,
@@ -255,7 +254,6 @@ if new_project_clicked:
         "last_assistant": "",
         "validation_report": [],
         "continuity_report": None,
-        "saved_project_selector": "— Choose a saved project —",
         "story_bible_extraction_editor": "",
         "story_bible_extraction_saved_snapshot": "",
         "story_bible_extraction_project_id": None,
@@ -496,6 +494,7 @@ st.title("🎬 Screenwriter Studio")
 if st.session_state.get("project_loaded_notice"):
     st.success(st.session_state.pop("project_loaded_notice"))
 st.caption(f"Local model: {model} · Format: {project_type} · Language: {language}")
+st.caption("Project settings, screenplay drafts, scene plans and Script Doctor comparisons autosave locally.")
 render_story_bible(current_project_id)
 left, right = st.columns([2, 1])
 with left:
