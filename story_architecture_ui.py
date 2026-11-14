@@ -20,7 +20,7 @@ def _clear_architecture_state(project_id):
     st.session_state["story_architecture"] = None
     st.session_state["story_architecture_experiences"] = []
     st.session_state["story_architecture_engine"] = ""
-    st.session_state["story_architecture_primary_structure"] = "three_act"
+    st.session_state.pop("story_architecture_primary_structure", None)
 
 
 def _invalidate_architecture_approval():
