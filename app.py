@@ -14,7 +14,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragraph
 
-from story_bible import format_story_bible_context, init_db, upsert_project
+from continuity_checker import check_continuity
+from story_bible import format_story_bible_context, init_db, list_entries, upsert_project
 from story_bible_ui import render_story_bible
 
 init_db()
@@ -33,6 +34,7 @@ for key, default in {
     "scene_plan": "",
     "scene_plan_approved": False,
     "validation_report": [],
+    "continuity_report": None,
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -389,6 +391,38 @@ with left:
         height=650, label_visibility="collapsed",
         placeholder="Your screenplay will appear here. You can also paste or edit a draft."
     )
+
+    if st.button("🔍 Check Story Bible continuity", use_container_width=True):
+        if not st.session_state.script_text.strip():
+            st.session_state.continuity_report = None
+            st.warning("Generate or paste a screenplay before checking continuity.")
+        elif current_project_id is None:
+            st.session_state.continuity_report = None
+            st.warning("Enter a project title and add Story Bible records first.")
+        else:
+            st.session_state.continuity_report = check_continuity(
+                st.session_state.script_text,
+                list_entries(current_project_id),
+            )
+
+    if st.session_state.continuity_report is not None:
+        report = st.session_state.continuity_report
+        findings = report["findings"]
+        st.markdown("### Story Bible continuity report")
+        st.caption(
+            "Initial deterministic rule set: checks explicit numeric character-age "
+            "references against saved Story Bible ages. It does not assess other continuity types."
+        )
+        st.metric("Characters with numeric ages checked", report["checked_characters"])
+        if findings:
+            st.warning(f"{len(findings)} possible age contradiction(s) found.")
+            for finding in findings:
+                st.error(finding["message"])
+                st.caption(f"Line {finding['line']}: {finding['excerpt']}")
+        elif report["checked_characters"]:
+            st.success("No explicit character-age contradictions found.")
+        else:
+            st.info("No character records with numeric ages were available to check.")
 with right:
     st.subheader("🧭 Scene Blueprint")
     if st.session_state.scene_plan:
