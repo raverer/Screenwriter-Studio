@@ -1,4 +1,5 @@
 """Streamlit review-and-approve workflow for automatic Story Bible extraction."""
+import hashlib
 import json
 
 import streamlit as st
@@ -21,6 +22,9 @@ def render_story_bible_extraction(project_id, screenplay, model, llm_call):
 
     st.session_state.setdefault("story_bible_extraction_editor", "")
     st.session_state.setdefault("story_bible_extraction_saved_snapshot", "")
+    st.session_state.setdefault("story_bible_extraction_project_id", None)
+    st.session_state.setdefault("story_bible_extraction_source_hash", "")
+    st.session_state.setdefault("story_bible_extraction_last_seen", "")
 
     if st.button(
         "Extract Story Bible",
@@ -39,6 +43,11 @@ def render_story_bible_extraction(project_id, screenplay, model, llm_call):
                 {"entries": records}, ensure_ascii=False, indent=2
             )
             st.session_state.story_bible_extraction_saved_snapshot = ""
+            st.session_state.story_bible_extraction_project_id = project_id
+            st.session_state.story_bible_extraction_source_hash = hashlib.sha256(
+                screenplay.encode("utf-8")
+            ).hexdigest()
+            st.session_state.story_bible_extraction_last_seen = ""
             st.session_state.story_bible_extraction_overwrite = False
             st.success(f"Extracted {len(records)} candidate record(s). Review them below.")
         except Exception as exc:
@@ -59,6 +68,18 @@ def render_story_bible_extraction(project_id, screenplay, model, llm_call):
     )
     if not candidate_text.strip():
         return
+
+    if st.session_state.story_bible_extraction_project_id != project_id:
+        st.warning("These candidates belong to a different project. Extract again for the current project before saving.")
+        return
+    current_hash = hashlib.sha256(screenplay.encode("utf-8")).hexdigest()
+    if st.session_state.story_bible_extraction_source_hash != current_hash:
+        st.warning("The screenplay has changed since extraction. Extract again before saving so the Story Bible draft matches the current screenplay.")
+        return
+
+    if st.session_state.story_bible_extraction_last_seen != candidate_text:
+        st.session_state.story_bible_extraction_overwrite = False
+        st.session_state.story_bible_extraction_last_seen = candidate_text
 
     try:
         candidates = parse_extraction_response(candidate_text)
