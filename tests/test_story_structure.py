@@ -79,6 +79,14 @@ class StructureRecommenderTests(unittest.TestCase):
         self.assertIn("save_the_cat", ids)
         self.assertIn("three_act", ids)
 
+    def test_heros_journey_alias_recommends_monomyth(self):
+        result = recommend_structures(storytelling_engine="Hero's Journey")
+        self.assertEqual(result["recommendations"][0]["structure_id"], "monomyth")
+
+    def test_unknown_storytelling_engine_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Unknown storytelling_engine"):
+            recommend_structures(storytelling_engine="mysterious plot engine")
+
     def test_commercial_audience_experience_supports_save_the_cat(self):
         result = recommend_structures(
             audience_experience="commercially engaging",
