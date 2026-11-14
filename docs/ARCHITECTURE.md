@@ -20,6 +20,10 @@ flowchart TD
     ARCHUI --> ARCHGEN[Story architecture generator]
     ARCHGEN --> OLLAMA
     ARCHGEN --> ARCHVALID[Blueprint validator]
+    APP --> RAGUI[Research Library UI]
+    RAGUI --> RAG[Document ingestion and retrieval]
+    RAG --> EMBED[Ollama /api/embed]
+    RAG --> DBL
 
     DBL --> DB[(Local SQLite database)]
     SBU[Story Bible UI] --> DBL
@@ -46,7 +50,9 @@ The diagram describes the current code organization. It is not a claim that the 
 | `story_structure.py` | Structured reference definitions for seven narrative frameworks, with genre affinities, audience experiences, strengths, cautions, components, and complements |
 | `structure_recommender.py` | Deterministic recommendations with score breakdowns, matched reasons, caveats, and complementary structures |
 | `story_architecture.py` | Framework-specific prompt construction, injectable LLM generation, JSON parsing, beat-order validation, and approved-architecture prompt context formatting |
-| `story_architecture_ui.py` | Streamlit interface for recommendations, architecture generation, JSON editing, validation, and writer approval |
+| `story_architecture_ui.py` | Streamlit interface for recommendations, architecture generation, JSON editing, validation, and project-persistent writer approval |
+| `research_rag.py` | PDF/DOCX/TXT/Markdown text extraction, overlapping chunking, Ollama embeddings, SQLite vector persistence, cosine retrieval and source-labelled context |
+| `research_rag_ui.py` | Research document upload, indexing, source management and semantic search interface |
 | `scene_evaluator.py` | Experimental scene-evaluation logic; not connected to the active application workflow |
 | `tests/` | Unit tests for persistence, extraction, continuity checks, screenplay validation, structure recommendations, and architecture generation |
 
@@ -65,7 +71,7 @@ The recommender uses a transparent maximum 15-point heuristic: 5 points for a st
 
 The UI passes the project's genre and story brief to the recommender and blueprint generator. The writer can add intended audience experiences and select a dominant storytelling engine, override the recommended framework, edit the generated JSON, and approve it only if the selected framework's components are present exactly once and in the required order. Editing the JSON or changing the selected framework invalidates prior approval.
 
-Approved architecture currently lives in Streamlit session state only. It is not yet persisted across reloads or project switches, and it is not yet passed automatically into the existing Scene Blueprint prompt. Those are later integration steps.
+Approved architecture is stored in `project_story_architectures` as project-scoped JSON. The UI validates it when restoring a project, and prompt construction includes only the saved approved architecture. Editing or changing the selected structure invalidates the approval and removes the stored approved version. Those are later integration steps.
 
 ## 4. Core data flow
 
@@ -77,7 +83,7 @@ Approved architecture currently lives in Streamlit session state only. It is not
 4. The model proposes a Scene Blueprint.
 5. The writer reviews and can edit the blueprint, then explicitly approves it.
 6. The app sends the approved blueprint and project context to Ollama to draft the scene.
-7. The screenplay and workspace state are saved locally.
+7. Approved Story Architecture and the screenplay/workspace state are saved locally.
 
 The approval step keeps the writer in control of the scene plan. The model output is a proposal, not an automatically accepted instruction.
 
@@ -92,6 +98,21 @@ The approval step keeps the writer in control of the scene plan. The model outpu
 7. The writer edits the JSON and explicitly approves it after validation.
 
 Generation and approval are separate from persistence. The currently approved architecture is stored in Streamlit session state only. It is not yet saved in SQLite or automatically included in scene-generation prompts.
+
+
+### Research Library and RAG retrieval
+
+1. The writer uploads PDF, DOCX, TXT or Markdown files to the active project.
+2. The ingestion layer extracts text. PDF extraction retains page numbers for pages with readable text.
+3. Text is split into 220-word chunks with a 40-word overlap (up to 500 chunks per document).
+4. The app sends chunk batches to the configured Ollama host's `/api/embed` endpoint. The default embedding model is `nomic-embed-text:latest`.
+5. Original chunk text, source filename, page metadata and embedding vectors are stored in SQLite, scoped to the active project.
+6. A search query is embedded with the same model. The app computes cosine similarity against that project's stored vectors and returns the top-k matching chunks.
+7. The Research Library UI displays excerpts with source labels. When **Use retrieved research in AI prompts** is enabled, up to four relevant excerpts are attached to writing context with filename/page references.
+
+Story Bible facts and retrieved research are kept in separate prompt sections: Story Bible records are continuity constraints; RAG excerpts are supporting reference material. The writer can inspect sources rather than treating generated statements as verified facts.
+
+Retrieval currently uses a brute-force cosine scan over local SQLite vectors. The implementation does not include a dedicated vector database, hybrid keyword retrieval, reranking, OCR for scanned PDFs, or a formal retrieval-evaluation dataset. Uploaded files are limited to 10 MB and 500 chunks. PDF text extraction may not preserve complex page layouts.
 
 ### Story Bible extraction
 
@@ -117,15 +138,18 @@ These tools do not prove that a screenplay is error-free. They only report issue
 
 The SQLite database is local to the machine by default and is created automatically.
 
-Approved story architectures are not yet stored in SQLite; the current UI keeps them in Streamlit session state. The next persistence phase will add project-scoped storage.
+Approved story architectures are stored per project in SQLite and revalidated when restored. Research document metadata, extracted chunks and embedding vectors are also stored per project in SQLite.
 
 The main tables are:
 
 - `projects`: project title and JSON metadata such as format, language, genre, tone, logline and writing guidance.
 - `project_workspaces`: screenplay text, Scene Blueprint, approval state, previous Script Doctor draft, and last assistant note for a project.
+- `project_story_architectures`: one validated, writer-approved architecture JSON record per project.
 - `story_bible_entries`: project-linked character, location, prop and timeline records.
+- `research_documents`: project-scoped source document metadata and embedding model.
+- `research_chunks`: project-scoped source text chunks, PDF page numbers and embedding vectors serialized as JSON.
 
-A project can have one workspace row and multiple Story Bible entries. Story Bible entries reference their project through a foreign key. Project titles are unique without case sensitivity; an entry name is unique within a project and category.
+A project can have one workspace row, one approved architecture row, multiple Story Bible entries, and multiple indexed research documents/chunks. All project-owned rows reference their project through foreign keys. Project titles are unique without case sensitivity; an entry name is unique within a project and category.
 
 The database path can be changed with `SCREENWRITER_DB_PATH`. The default database file is excluded from Git so that screenplay drafts and project facts are not committed accidentally.
 
@@ -152,7 +176,7 @@ The tests focus on deterministic logic, prompt construction, response parsing, b
 ## 8. Current limitations and next engineering boundaries
 
 - `app.py` still combines UI rendering, workflow orchestration, model request code and document export. Separating these responsibilities is a future refactoring opportunity.
-- There is no RAG pipeline, vector database or semantic retrieval layer. Story Bible context is currently included as bounded text.
+- RAG retrieval is implemented with locally stored embeddings and exact cosine similarity. It is intentionally lightweight and does not currently use a separate vector database, hybrid search, or reranking.
 - The continuity checker currently handles explicit numeric character-age references only.
 - Screenplay validation is heuristic and checks a limited set of formatting patterns.
 - Extraction is limited to the first 8,000 screenplay characters.
