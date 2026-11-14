@@ -234,7 +234,10 @@ def index_document(project_id, file_name, file_bytes, embedding_model,
     chunks = chunk_document_units(units)
     if not chunks:
         raise ValueError("No text chunks were produced from this file.")
-    vectors = embedding_fn([item["content"] for item in chunks], embedding_model)
+    document_texts = [item["content"] for item in chunks]
+    if "nomic-embed-text" in embedding_model.lower():
+        document_texts = ["search_document: " + text for text in document_texts]
+    vectors = embedding_fn(document_texts, embedding_model)
     if len(vectors) != len(chunks):
         raise ValueError("Embedding count does not match the document chunk count.")
     dimensions = {len(vector) for vector in vectors if isinstance(vector, list)}
@@ -391,7 +394,10 @@ def retrieve_relevant_chunks(project_id, query, embedding_model,
         raise TypeError("embedding_fn must be callable.")
     if not list_research_documents(project_id, db_path):
         return []
-    vectors = embedding_fn([query.strip()[:4000]], embedding_model)
+    query_text = query.strip()[:4000]
+    if "nomic-embed-text" in embedding_model.lower():
+        query_text = "search_query: " + query_text
+    vectors = embedding_fn([query_text], embedding_model)
     if len(vectors) != 1:
         raise ValueError("Could not create a single query embedding.")
     return search_chunks(
