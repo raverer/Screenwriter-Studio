@@ -99,6 +99,16 @@ From the project root, with the virtual environment activated:
 python -m unittest discover -s tests -v
 ```
 
+## Continuous Integration
+
+GitHub Actions runs the unit test suite on pushes and pull requests using Python 3.10 and 3.11. The workflow is defined in `.github/workflows/ci.yml`.
+
+Run the same test command locally before pushing:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Current limitations
 
 - Story Bible extraction processes only the first 8,000 screenplay characters in this version.
