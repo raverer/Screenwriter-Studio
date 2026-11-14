@@ -303,26 +303,36 @@ trend_style = st.sidebar.text_input("Audience / genre convention (optional)", ke
 
 current_project_id = None
 if title.strip():
-    current_project_id = upsert_project(
-        title,
-        {
-            "format": project_type,
-            "language": language,
-            "genre": genre,
-            "tone": tone,
-            "characters": characters,
-            "setting": setting,
-            "logline": logline,
-            "notes": notes,
-            "writing_style": writing_style,
-            "audience_guidance": trend_style,
-        },
+    active_project_id = st.session_state.get("active_project_id")
+    existing_project = next(
+        (item for item in saved_projects if item["title"].casefold() == title.strip().casefold()),
+        None,
     )
-    st.session_state["active_project_id"] = current_project_id
+    if active_project_id is None and existing_project is not None:
+        st.sidebar.warning(
+            "This project already exists. Select it under Saved projects and click Load selected project to resume it."
+        )
+    else:
+        current_project_id = upsert_project(
+            title,
+            {
+                "format": project_type,
+                "language": language,
+                "genre": genre,
+                "tone": tone,
+                "characters": characters,
+                "setting": setting,
+                "logline": logline,
+                "notes": notes,
+                "writing_style": writing_style,
+                "audience_guidance": trend_style,
+            },
+        )
+        st.session_state["active_project_id"] = current_project_id
 
-    known_project_ids = {item["id"] for item in saved_projects}
-    if current_project_id not in known_project_ids:
-        st.rerun()
+        known_project_ids = {item["id"] for item in saved_projects}
+        if current_project_id not in known_project_ids:
+            st.rerun()
 else:
     st.session_state["active_project_id"] = None
 
