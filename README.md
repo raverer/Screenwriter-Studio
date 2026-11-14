@@ -1,8 +1,8 @@
 # Screenwriter Studio
 
-A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, and Ollama.
+A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, SQLite, and Ollama.
 
-Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, preserve project facts, run deterministic formatting checks, and export scripts.
+Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, preserve project facts, check selected continuity rules, and resume work across sessions.
 
 ## Features
 
@@ -10,9 +10,8 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
 - **Project library and resume:** switch between saved projects. Project settings, screenplay drafts, scene blueprints, approval state, Script Doctor comparison drafts, and studio notes autosave locally to SQLite.
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
-- **Automatic Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
+- **Writer-reviewed Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
 - **Continuity context:** saved Story Bible facts are automatically included in scene-planning and screenplay-generation prompts.
-- **Automatic Story Bible extraction:** the local model proposes character, location, prop, and timeline records from a screenplay. Writers can edit the JSON and explicitly approve saving; matching existing records require separate overwrite approval.
 - **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
@@ -20,18 +19,16 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 
 ## Architecture
 
-- `app.py` — Streamlit application, project setup, generation workflow, and exports.
+- `app.py` — Streamlit application, project setup, project switching, generation workflow, and exports.
 - `story_bible.py` — SQLite persistence layer for project metadata, resumable writing workspaces, and Story Bible records. Independent of Streamlit and Ollama.
 - `story_bible_ui.py` — Streamlit create, read, update, and delete interface for Story Bible records.
 - `story_bible_extractor.py` — extraction prompt, JSON/schema validation, and explicit-approval persistence.
 - `story_bible_extraction_ui.py` — extract, review, edit, resolve conflicts, and approve saving.
-- `story_bible_extractor.py` — conservative extraction prompt, JSON/schema validation, and explicit-approval persistence.
-- `story_bible_extraction_ui.py` — extraction, review, edit, conflict confirmation, and save workflow.
-- `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
+- `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `tests/` — unit tests for persistence, extraction, continuity checks, validation, and the deferred experimental evaluator.
 
-The Story Bible is currently **manually maintained** by the writer. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Automatic fact extraction and semantic retrieval/RAG are not implemented yet.
+The Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Semantic retrieval / RAG is not implemented yet.
 
 ## Requirements
 
@@ -81,19 +78,18 @@ Saved projects appear in the **Saved projects** selector in the sidebar. Choose 
 
 Existing projects created before workspace persistence was added keep their project settings and Story Bible records. They have no previously saved screenplay workspace to restore; paste or recreate an old draft once and it will autosave from then on.
 
-
-Story Bible records are stored locally in `screenwriter_studio.db` next to the application. The database is created automatically and is excluded from Git by `.gitignore`. It stores project metadata, writing workspaces, and Story Bible entries.
+The SQLite database is stored locally in `screenwriter_studio.db` next to the application. It is created automatically and excluded from Git by `.gitignore`. It stores project metadata, writing workspaces, and Story Bible entries.
 
 To store the database elsewhere, set `SCREENWRITER_DB_PATH` to a database file path before launching the app.
 
-Projects are separated by project title. Within a project, entries are organised into four categories:
+Projects are separated by project title. Within a project, Story Bible entries are organised into four categories:
 
 - **Characters:** age, role, personality, motivation, relationships, continuity facts.
 - **Locations:** type, description, time/atmosphere, visual details.
 - **Props:** description, owner, story significance, continuity facts.
 - **Timeline:** when an event occurs, what happens, people involved, consequences.
 
-Keep a backup of the local database if you need to preserve project data across machines. The app does not sync Story Bible records to GitHub.
+Keep a backup of the local database if you need to preserve project data across machines. The app does not sync project data to GitHub.
 
 ## Run tests
 
@@ -105,8 +101,8 @@ python -m unittest discover -s tests -v
 
 ## Current limitations
 
-- Story Bible facts must be entered and maintained by the writer; automatic extraction is a future enhancement.
-- Continuity information is added to the prompt as bounded text context. A retrieval-augmented generation (RAG) pipeline is not implemented yet.
+- Story Bible extraction processes only the first 8,000 screenplay characters in this version.
+- Continuity information is added to prompts as bounded text context. A retrieval-augmented generation (RAG) pipeline is not implemented yet.
 - Screenplay formatting and continuity checks use narrow deterministic rules; review all findings and missed cases manually.
 - Local model output quality and response speed depend on the selected model and available hardware.
 - The scene evaluator is experimental and is not part of the active Streamlit workflow.
