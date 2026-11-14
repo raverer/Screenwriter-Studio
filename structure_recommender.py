@@ -142,6 +142,9 @@ def _normalise_experiences(values):
 def _normalise_engine(value):
     if not value:
         return None
+    raw_value = str(value).strip().lower()
+    if raw_value in ENGINE_LABELS:
+        return raw_value
     key = _normalise_text(value)
     if key in ENGINE_ALIASES:
         return ENGINE_ALIASES[key]
