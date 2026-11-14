@@ -15,6 +15,9 @@ from story_bible import (
     save_project_workspace,
     upsert_entry,
     upsert_project,
+    save_project_architecture,
+    load_project_architecture,
+    delete_project_architecture,
 )
 
 
@@ -85,6 +88,34 @@ class StoryBibleTests(unittest.TestCase):
         self.assertEqual(first['last_assistant'], 'Scene generated')
         self.assertEqual(second['screenplay'], '')
         self.assertFalse(second['scene_plan_approved'])
+
+    def test_approved_story_architecture_is_persisted_per_project(self):
+        first_id = upsert_project("Architecture One", db_path=self.db_path)
+        second_id = upsert_project("Architecture Two", db_path=self.db_path)
+        architecture = {
+            "structure_id": "three_act",
+            "title": "A Test Story",
+            "beats": [{"component": "Setup"}],
+        }
+        save_project_architecture(first_id, architecture, self.db_path)
+        self.assertEqual(
+            load_project_architecture(first_id, self.db_path), architecture
+        )
+        self.assertIsNone(load_project_architecture(second_id, self.db_path))
+        self.assertTrue(delete_project_architecture(first_id, self.db_path))
+        self.assertIsNone(load_project_architecture(first_id, self.db_path))
+
+    def test_story_architecture_table_is_created_for_existing_database(self):
+        # Re-running initialization must be safe for databases created by older versions.
+        init_db(self.db_path)
+        project_id = upsert_project("Existing Project", db_path=self.db_path)
+        save_project_architecture(
+            project_id, {"structure_id": "three_act"}, self.db_path
+        )
+        self.assertEqual(
+            load_project_architecture(project_id, self.db_path)["structure_id"],
+            "three_act",
+        )
 
     def test_workspace_updates_existing_saved_state(self):
         project_id = upsert_project('Test', db_path=self.db_path)
