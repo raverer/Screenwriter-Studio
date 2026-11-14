@@ -56,6 +56,7 @@ for key, default in {
     "project_writing_style": "",
     "project_audience_guidance": "",
     "saved_project_selector": "— Choose a saved project —",
+    "active_project_id": None,
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -205,6 +206,7 @@ if load_project_clicked:
     if selected_project:
         metadata = selected_project["metadata"]
         workspace = load_project_workspace(selected_project["id"])
+        st.session_state["active_project_id"] = selected_project["id"]
         st.session_state["project_title"] = selected_project["title"]
         st.session_state["project_type"] = metadata.get("format", "Feature Film")
         st.session_state["writing_language"] = metadata.get("language", "English")
@@ -235,6 +237,7 @@ if load_project_clicked:
 if new_project_clicked:
     for key, value in {
         "project_title": "",
+        "active_project_id": None,
         "project_type": "Feature Film",
         "writing_language": "English",
         "project_genre": "",
@@ -264,7 +267,13 @@ if new_project_clicked:
     st.session_state["project_loaded_notice"] = "New workspace ready. Enter a project title to save it."
 
 st.sidebar.markdown("### Project setup")
-title = st.sidebar.text_input("Project title", placeholder="e.g. The Last Local Train", key="project_title")
+title = st.sidebar.text_input(
+    "Project title",
+    placeholder="e.g. The Last Local Train",
+    key="project_title",
+    disabled=st.session_state.get("active_project_id") is not None,
+    help="Start a new project using the button above; saved project titles are locked to prevent accidental workspace mixing.",
+)
 project_type = st.sidebar.selectbox(
     "Screenplay format",
     ["Feature Film", "OTT / Web Series", "Short Film"],
