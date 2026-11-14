@@ -1,7 +1,14 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from story_bible_extractor import build_extraction_prompt, parse_extraction_response
+from story_bible import init_db, list_entries, upsert_entry, upsert_project
+from story_bible_extractor import (
+    build_extraction_prompt,
+    parse_extraction_response,
+    save_extracted_entries,
+)
 
 
 class StoryBibleExtractorTests(unittest.TestCase):
@@ -65,6 +72,38 @@ class StoryBibleExtractorTests(unittest.TestCase):
 
     def test_empty_entries_is_valid(self):
         self.assertEqual(parse_extraction_response('{"entries": []}'), [])
+
+    def test_save_requires_explicit_approval_to_update_existing_entries(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "test.db"
+            init_db(db_path)
+            project_id = upsert_project("Test", db_path=db_path)
+            upsert_entry(project_id, "character", "Aarav", {"age": "30"}, db_path=db_path)
+            candidates = [
+                {"category": "character", "name": "Aarav", "data": {"age": "31"}}
+            ]
+            with self.assertRaisesRegex(ValueError, "Explicitly approve"):
+                save_extracted_entries(project_id, candidates, db_path=db_path)
+            self.assertEqual(
+                list_entries(project_id, "character", db_path)[0]["data"]["age"],
+                "30",
+            )
+
+    def test_save_creates_and_updates_only_after_approval(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "test.db"
+            init_db(db_path)
+            project_id = upsert_project("Test", db_path=db_path)
+            upsert_entry(project_id, "character", "Aarav", {"age": "30"}, db_path=db_path)
+            candidates = [
+                {"category": "character", "name": "Aarav", "data": {"age": "30"}},
+                {"category": "location", "name": "Versova Beach", "data": {"place_type": "Exterior"}},
+            ]
+            result = save_extracted_entries(
+                project_id, candidates, allow_overwrite=True, db_path=db_path
+            )
+            self.assertEqual(result, {"created": 1, "updated": 1})
+            self.assertEqual(len(list_entries(project_id, db_path=db_path)), 2)
 
     def test_prompt_requires_a_screenplay_and_is_grounded(self):
         with self.assertRaisesRegex(ValueError, "screenplay"):
