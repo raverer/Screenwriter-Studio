@@ -117,7 +117,7 @@ Run the unit tests from the repository root:
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull requests. At the time this architecture document was added, the local suite contained 42 passing tests and both CI matrix jobs had passed.
+GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull requests. The suite currently contains 63 passing tests, including coverage for the story-structure knowledge library and recommendation engine. Both CI matrix jobs passed on the implementation commit.
 
 The tests focus on deterministic logic and persistence. They do not replace manual end-to-end testing of the Streamlit interface or tests against every Ollama model.
 
