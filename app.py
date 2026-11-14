@@ -15,7 +15,16 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragraph
 
 from continuity_checker import check_continuity
-from story_bible import format_story_bible_context, init_db, list_entries, upsert_project
+from story_bible import (
+    format_story_bible_context,
+    get_project_metadata,
+    init_db,
+    list_entries,
+    list_projects,
+    load_project_workspace,
+    save_project_workspace,
+    upsert_project,
+)
 from story_bible_ui import render_story_bible
 from story_bible_extraction_ui import render_story_bible_extraction
 
@@ -36,6 +45,18 @@ for key, default in {
     "scene_plan_approved": False,
     "validation_report": [],
     "continuity_report": None,
+    "project_title": "",
+    "project_type": "Feature Film",
+    "writing_language": "English",
+    "project_genre": "",
+    "project_tone": "",
+    "project_characters": "",
+    "project_setting": "",
+    "project_logline": "",
+    "project_notes": "",
+    "project_writing_style": "",
+    "project_audience_guidance": "",
+    "saved_project_selector": "— Choose a saved project —",
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -162,26 +183,109 @@ else:
 temperature = st.sidebar.slider("Creativity", 0.1, 1.2, 0.7, 0.1)
 max_tokens = st.sidebar.slider("Maximum output tokens", 512, 4096, 2048, step=256)
 
+st.sidebar.markdown("### Saved projects")
+saved_projects = list_projects()
+saved_project_titles = ["— Choose a saved project —"] + [item["title"] for item in saved_projects]
+selected_saved_project = st.sidebar.selectbox(
+    "Open an existing project",
+    saved_project_titles,
+    key="saved_project_selector",
+)
+load_project_clicked = st.sidebar.button(
+    "📂 Load selected project",
+    use_container_width=True,
+    disabled=selected_saved_project == "— Choose a saved project —",
+)
+new_project_clicked = st.sidebar.button("＋ New project / Clear workspace", use_container_width=True)
+
+if load_project_clicked:
+    selected_project = next(
+        (item for item in saved_projects if item["title"] == selected_saved_project),
+        None,
+    )
+    if selected_project:
+        metadata = selected_project["metadata"]
+        workspace = load_project_workspace(selected_project["id"])
+        st.session_state["project_title"] = selected_project["title"]
+        st.session_state["project_type"] = metadata.get("format", "Feature Film")
+        st.session_state["writing_language"] = metadata.get("language", "English")
+        st.session_state["project_genre"] = metadata.get("genre", "")
+        st.session_state["project_tone"] = metadata.get("tone", "")
+        st.session_state["project_characters"] = metadata.get("characters", "")
+        st.session_state["project_setting"] = metadata.get("setting", "")
+        st.session_state["project_logline"] = metadata.get("logline", "")
+        st.session_state["project_notes"] = metadata.get("notes", "")
+        st.session_state["project_writing_style"] = metadata.get("writing_style", "")
+        st.session_state["project_audience_guidance"] = metadata.get("audience_guidance", "")
+        st.session_state["script_text"] = workspace["screenplay"]
+        st.session_state["scene_plan"] = workspace["scene_plan"]
+        st.session_state["scene_plan_editor"] = workspace["scene_plan"]
+        st.session_state["scene_plan_approved"] = workspace["scene_plan_approved"]
+        st.session_state["scene_plan_approval"] = workspace["scene_plan_approved"]
+        st.session_state["script_before_doctor"] = workspace["script_before_doctor"]
+        st.session_state["last_assistant"] = workspace["last_assistant"]
+        st.session_state["continuity_report"] = None
+        st.session_state["validation_report"] = []
+        st.session_state["story_bible_extraction_editor"] = ""
+        st.session_state["story_bible_extraction_saved_snapshot"] = ""
+        st.session_state["story_bible_extraction_project_id"] = None
+        st.session_state["story_bible_extraction_source_hash"] = ""
+        st.session_state["story_bible_extraction_last_seen"] = ""
+        st.session_state["project_loaded_notice"] = f"Loaded project: {selected_project['title']}"
+
+if new_project_clicked:
+    for key, value in {
+        "project_title": "",
+        "project_type": "Feature Film",
+        "writing_language": "English",
+        "project_genre": "",
+        "project_tone": "",
+        "project_characters": "",
+        "project_setting": "",
+        "project_logline": "",
+        "project_notes": "",
+        "project_writing_style": "",
+        "project_audience_guidance": "",
+        "script_text": "",
+        "scene_plan": "",
+        "scene_plan_editor": "",
+        "scene_plan_approved": False,
+        "scene_plan_approval": False,
+        "script_before_doctor": "",
+        "last_assistant": "",
+        "validation_report": [],
+        "continuity_report": None,
+        "saved_project_selector": "— Choose a saved project —",
+        "story_bible_extraction_editor": "",
+        "story_bible_extraction_saved_snapshot": "",
+        "story_bible_extraction_project_id": None,
+        "story_bible_extraction_source_hash": "",
+        "story_bible_extraction_last_seen": "",
+    }.items():
+        st.session_state[key] = value
+    st.session_state["project_loaded_notice"] = "New workspace ready. Enter a project title to save it."
+
 st.sidebar.markdown("### Project setup")
-title = st.sidebar.text_input("Project title", placeholder="e.g. The Last Local Train")
+title = st.sidebar.text_input("Project title", placeholder="e.g. The Last Local Train", key="project_title")
 project_type = st.sidebar.selectbox(
     "Screenplay format",
     ["Feature Film", "OTT / Web Series", "Short Film"],
-    help="Choose the format for this project. You can start a different project in another format."
+    key="project_type",
+    help="Choose the format for this project.",
 )
 language = st.sidebar.text_input(
     "Writing language",
-    value="English",
-    help="Choose any language or mix, e.g. Hindi, Nepali, Hinglish, Malayalam, English with Hindi dialogue."
+    key="writing_language",
+    help="Choose any language or mix, e.g. Hindi, Nepali, Hinglish, Malayalam, English with Hindi dialogue.",
 )
-genre = st.sidebar.text_input("Genre", placeholder="Psychological thriller")
-tone = st.sidebar.text_input("Tone", placeholder="Tense, grounded, atmospheric")
-characters = st.sidebar.text_area("Main characters", placeholder="Name, age, personality, motivation…")
-setting = st.sidebar.text_input("Primary setting", placeholder="Mumbai, present day")
-logline = st.sidebar.text_area("Logline / premise", placeholder="What is the story about?")
-notes = st.sidebar.text_area("Story notes / constraints", placeholder="Themes, plot points, restrictions…")
-writing_style = st.sidebar.text_input("Style reference (optional)", placeholder="Describe qualities, not just a name")
-trend_style = st.sidebar.text_input("Audience / genre convention (optional)")
+genre = st.sidebar.text_input("Genre", placeholder="Psychological thriller", key="project_genre")
+tone = st.sidebar.text_input("Tone", placeholder="Tense, grounded, atmospheric", key="project_tone")
+characters = st.sidebar.text_area("Main characters", placeholder="Name, age, personality, motivation…", key="project_characters")
+setting = st.sidebar.text_input("Primary setting", placeholder="Mumbai, present day", key="project_setting")
+logline = st.sidebar.text_area("Logline / premise", placeholder="What is the story about?", key="project_logline")
+notes = st.sidebar.text_area("Story notes / constraints", placeholder="Themes, plot points, restrictions…", key="project_notes")
+writing_style = st.sidebar.text_input("Style reference (optional)", placeholder="Describe qualities, not just a name", key="project_writing_style")
+trend_style = st.sidebar.text_input("Audience / genre convention (optional)", key="project_audience_guidance")
 
 current_project_id = None
 if title.strip():
@@ -200,6 +304,13 @@ if title.strip():
             "audience_guidance": trend_style,
         },
     )
+    st.session_state["active_project_id"] = current_project_id
+
+    known_project_ids = {item["id"] for item in saved_projects}
+    if current_project_id not in known_project_ids:
+        st.rerun()
+else:
+    st.session_state["active_project_id"] = None
 
 st.sidebar.markdown("---")
 generate_btn = st.sidebar.button("✍️ Generate Scene 1", use_container_width=True)
@@ -382,14 +493,18 @@ if doctor_btn:
         st.error(str(exc))
 
 st.title("🎬 Screenwriter Studio")
+if st.session_state.get("project_loaded_notice"):
+    st.success(st.session_state.pop("project_loaded_notice"))
 st.caption(f"Local model: {model} · Format: {project_type} · Language: {language}")
 render_story_bible(current_project_id)
 left, right = st.columns([2, 1])
 with left:
     st.subheader("📄 Screenplay")
-    st.session_state.script_text = st.text_area(
-        "Edit your screenplay here", value=st.session_state.script_text,
-        height=650, label_visibility="collapsed",
+    st.text_area(
+        "Edit your screenplay here",
+        key="script_text",
+        height=650,
+        label_visibility="collapsed",
         placeholder="Your screenplay will appear here. You can also paste or edit a draft."
     )
 
@@ -480,3 +595,14 @@ if st.session_state.script_text.strip():
     if st.session_state.script_before_doctor:
         with st.expander("Compare: original before Script Doctor"):
             st.text_area("Original screenplay", st.session_state.script_before_doctor, height=400)
+
+
+if current_project_id is not None:
+    save_project_workspace(
+        current_project_id,
+        screenplay=st.session_state.script_text,
+        scene_plan=st.session_state.scene_plan,
+        scene_plan_approved=st.session_state.scene_plan_approved,
+        script_before_doctor=st.session_state.script_before_doctor,
+        last_assistant=st.session_state.last_assistant,
+    )
