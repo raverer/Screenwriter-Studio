@@ -14,6 +14,12 @@ flowchart TD
     APP --> VALID[Screenplay validator]
     APP --> CONT[Continuity checker]
     APP --> EXPORT[DOCX / PDF export]
+    APP --> ARCHUI[Story Architecture UI]
+    ARCHUI --> REC[Structure recommender]
+    REC --> STRUCT[Seven-structure library]
+    ARCHUI --> ARCHGEN[Story architecture generator]
+    ARCHGEN --> OLLAMA
+    ARCHGEN --> ARCHVALID[Blueprint validator]
 
     DBL --> DB[(Local SQLite database)]
     SBU[Story Bible UI] --> DBL
@@ -57,7 +63,7 @@ The story-structure layer now includes the seven-framework reference library, a 
 
 The recommender uses a transparent maximum 15-point heuristic: 5 points for a storytelling-engine match, up to 6 points for audience-experience matches, and up to 4 points for genre-affinity matches. A score is not a probability or a measured quality estimate. If no criteria match, Three-Act Structure is shown as an explicitly labelled general-purpose fallback.
 
-The UI passes the project's genre and story brief to the recommender and blueprint generator. The writer can override the recommended framework, edit the generated JSON, and approve it only if the selected framework's components are present exactly once and in the required order. Editing the JSON or changing the selected framework invalidates prior approval.
+The UI passes the project's genre and story brief to the recommender and blueprint generator. The writer can add intended audience experiences and select a dominant storytelling engine, override the recommended framework, edit the generated JSON, and approve it only if the selected framework's components are present exactly once and in the required order. Editing the JSON or changing the selected framework invalidates prior approval.
 
 Approved architecture currently lives in Streamlit session state only. It is not yet persisted across reloads or project switches, and it is not yet passed automatically into the existing Scene Blueprint prompt. Those are later integration steps.
 
@@ -139,7 +145,7 @@ Run the unit tests from the repository root:
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull requests. The suite currently contains 63 passing tests, including coverage for the story-structure knowledge library and recommendation engine. Both CI matrix jobs passed on the implementation commit.
+GitHub Actions runs the same command for Python 3.10 and 3.11 on pushes and pull requests. The suite currently contains 95 passing tests, including coverage for the story-structure knowledge library, recommendation engine, architecture prompt generation, schema validation, beat ordering and approved-context formatting. Both CI matrix jobs passed on the implementation commit.
 
 The tests focus on deterministic logic, prompt construction, response parsing, beat-order validation, and persistence. They do not replace manual end-to-end testing of the Streamlit interface or tests against every Ollama model. CI also runs Python bytecode compilation to catch syntax errors in application modules.
 
