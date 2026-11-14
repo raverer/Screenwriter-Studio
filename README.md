@@ -17,7 +17,7 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
-- **Export:** download screenplay drafts as DOCX or PDF.
+- **Export:** download screenplay drafts as DOCX or PDF.\n- **Story structure knowledge library:** explore seven narrative frameworks with their core engines, genre affinities, audience experiences, strengths, cautions, and structural components.\n- **Explainable structure recommendations:** rank frameworks using genre, intended audience experience, and dominant storytelling engine; show match reasons, score breakdowns, cautions, and complementary structures.
 
 ## Architecture
 
@@ -27,12 +27,12 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `story_bible_extractor.py` — extraction prompt, JSON/schema validation, and explicit-approval persistence.
 - `story_bible_extraction_ui.py` — extract, review, edit, resolve conflicts, and approve saving.
 - `continuity_checker.py` — deterministic character-age continuity checks against Story Bible entries.
-- `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
+- `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.\n- `story_structure.py` — structured reference definitions for seven narrative frameworks.\n- `structure_recommender.py` — explainable, deterministic recommendations based on genre, audience experience, and storytelling engine.
 - `tests/` — unit tests for persistence, extraction, continuity checks, validation, and the deferred experimental evaluator.
 
-For the component diagram, data flows, persistence model, and implementation boundaries, see [the architecture document](docs/ARCHITECTURE.md).
+For the component diagram, data flows, persistence model, and implementation boundaries, see [the architecture document](docs/ARCHITECTURE.md). For the seven frameworks and recommendation scoring method, see [the Story Structure Engine guide](docs/STORY_STRUCTURE_ENGINE.md).
 
-The Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Semantic retrieval / RAG is not implemented yet.
+The story-structure recommender is deterministic and explainable; it is a creative heuristic, not a scientifically validated genre classifier or probability model. No single structure is required for a genre.\n\nThe Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Semantic retrieval / RAG is not implemented yet.
 
 ## Requirements
 
