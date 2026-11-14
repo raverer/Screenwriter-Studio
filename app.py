@@ -196,7 +196,46 @@ load_project_clicked = st.sidebar.button(
     use_container_width=True,
     disabled=selected_saved_project == "— Choose a saved project —",
 )
-new_project_clicked = st.sidebar.button("＋ New project / Clear workspace", use_container_width=True)
+def reset_new_project_workspace():
+    """Clear widget state before Streamlit renders the new-project form."""
+    for key, value in {
+        "project_title": "",
+        "active_project_id": None,
+        "project_type": "Feature Film",
+        "writing_language": "English",
+        "project_genre": "",
+        "project_tone": "",
+        "project_characters": "",
+        "project_setting": "",
+        "project_logline": "",
+        "project_notes": "",
+        "project_writing_style": "",
+        "project_audience_guidance": "",
+        "script_text": "",
+        "scene_plan": "",
+        "scene_plan_editor": "",
+        "scene_plan_approved": False,
+        "scene_plan_approval": False,
+        "script_before_doctor": "",
+        "last_assistant": "",
+        "validation_report": [],
+        "continuity_report": None,
+        "saved_project_selector": "— Choose a saved project —",
+        "story_bible_extraction_editor": "",
+        "story_bible_extraction_saved_snapshot": "",
+        "story_bible_extraction_project_id": None,
+        "story_bible_extraction_source_hash": "",
+        "story_bible_extraction_last_seen": "",
+    }.items():
+        st.session_state[key] = value
+    st.session_state["project_loaded_notice"] = "New workspace ready. Enter a project title to save it."
+
+
+st.sidebar.button(
+    "＋ New project / Clear workspace",
+    use_container_width=True,
+    on_click=reset_new_project_workspace,
+)
 
 if load_project_clicked:
     selected_project = next(
@@ -233,38 +272,6 @@ if load_project_clicked:
         st.session_state["story_bible_extraction_source_hash"] = ""
         st.session_state["story_bible_extraction_last_seen"] = ""
         st.session_state["project_loaded_notice"] = f"Loaded project: {selected_project['title']}"
-
-if new_project_clicked:
-    for key, value in {
-        "project_title": "",
-        "active_project_id": None,
-        "project_type": "Feature Film",
-        "writing_language": "English",
-        "project_genre": "",
-        "project_tone": "",
-        "project_characters": "",
-        "project_setting": "",
-        "project_logline": "",
-        "project_notes": "",
-        "project_writing_style": "",
-        "project_audience_guidance": "",
-        "script_text": "",
-        "scene_plan": "",
-        "scene_plan_editor": "",
-        "scene_plan_approved": False,
-        "scene_plan_approval": False,
-        "script_before_doctor": "",
-        "last_assistant": "",
-        "validation_report": [],
-        "continuity_report": None,
-        "story_bible_extraction_editor": "",
-        "story_bible_extraction_saved_snapshot": "",
-        "story_bible_extraction_project_id": None,
-        "story_bible_extraction_source_hash": "",
-        "story_bible_extraction_last_seen": "",
-    }.items():
-        st.session_state[key] = value
-    st.session_state["project_loaded_notice"] = "New workspace ready. Enter a project title to save it."
 
 st.sidebar.markdown("### Project setup")
 title = st.sidebar.text_input(
