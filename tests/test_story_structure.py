@@ -1,12 +1,10 @@
 import unittest
 
-from story_structure import (
-    get_structure,
-    get_structure_ids,
+from story_structure import get_structure, get_structure_ids, list_structures
+from structure_recommender import (
     get_complementary_structures,
-    list_structures,
+    recommend_structures,
 )
-from structure_recommender import recommend_structures
 
 
 class StoryStructureLibraryTests(unittest.TestCase):
