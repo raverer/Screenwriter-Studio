@@ -61,6 +61,14 @@ class ContinuityCheckerTests(unittest.TestCase):
         self.assertEqual(result["findings"], [])
         self.assertEqual(result["checked_characters"], 0)
 
+    def test_approximate_age_is_not_treated_as_exact(self):
+        entries = [
+            {"category": "character", "name": "Aarav", "data": {"age": "early 30s"}}
+        ]
+        result = check_continuity("Aarav, 28, enters.", entries)
+        self.assertEqual(result["checked_characters"], 0)
+        self.assertEqual(result["findings"], [])
+
     def test_non_numeric_story_bible_age_is_skipped(self):
         entries = [
             {"category": "character", "name": "Aarav", "data": {"age": "early thirties"}}
