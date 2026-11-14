@@ -217,6 +217,25 @@ class StoryArchitectureParsingAndGenerationTests(unittest.TestCase):
                 "three_act", {}, lambda system, prompt: '{"beats": []}'
             )
 
+
+    def test_generation_with_monomyth_structure_uses_twelve_components(self):
+        captured = {}
+
+        def fake_llm(system_prompt, user_prompt):
+            captured["prompt"] = user_prompt
+            return json.dumps(valid_architecture("monomyth"))
+
+        result = generate_architecture("monomyth", {"genre": "Fantasy"}, fake_llm)
+        self.assertEqual(len(result["beats"]), 12)
+        self.assertIn("Return ONLY one valid JSON object", captured["prompt"])
+
+    def test_architecture_context_includes_each_beat_in_order(self):
+        architecture = valid_architecture("kishotenketsu")
+        context = format_architecture_context(architecture)
+        self.assertLess(context.index("1. Ki — Introduction"), context.index("2. Shō — Development"))
+        self.assertLess(context.index("2. Shō — Development"), context.index("3. Ten — Twist or contrast"))
+        self.assertLess(context.index("3. Ten — Twist or contrast"), context.index("4. Ketsu — Conclusion or connection"))
+
     def test_generation_requires_callable(self):
         with self.assertRaises(TypeError):
             generate_architecture("three_act", {}, "not callable")
