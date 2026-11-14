@@ -17,6 +17,7 @@ from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer, Paragrap
 from continuity_checker import check_continuity
 from story_bible import format_story_bible_context, init_db, list_entries, upsert_project
 from story_bible_ui import render_story_bible
+from story_bible_extraction_ui import render_story_bible_extraction
 
 init_db()
 
@@ -390,6 +391,15 @@ with left:
         "Edit your screenplay here", value=st.session_state.script_text,
         height=650, label_visibility="collapsed",
         placeholder="Your screenplay will appear here. You can also paste or edit a draft."
+    )
+
+    render_story_bible_extraction(
+        current_project_id,
+        st.session_state.script_text,
+        model,
+        lambda system, prompt: call_ollama(
+            system, prompt, model, 0.1, 1500, response_format="json"
+        ),
     )
 
     if st.button("🔍 Check Story Bible continuity", use_container_width=True):
