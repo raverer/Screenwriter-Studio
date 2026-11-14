@@ -64,7 +64,11 @@ ENGINE_ALIASES = {
     "conflict resolution": "conflict_and_resolution",
     "journey": "extraordinary_journey",
     "hero journey": "extraordinary_journey",
-    "hero's journey": "extraordinary_journey",
+    "hero s journey": "extraordinary_journey",
+    "the hero s journey": "extraordinary_journey",
+    "extraordinary journey": "extraordinary_journey",
+    "character development": "character_transformation",
+    "character transformation": "character_transformation",
 }
 
 ENGINE_LABELS = {
@@ -175,6 +179,9 @@ def recommend_structures(
     if storytelling_engine is not None and not isinstance(storytelling_engine, str):
         raise TypeError("storytelling_engine must be a string.")
     engine = _normalise_engine(storytelling_engine)
+    if engine and engine not in ENGINE_LABELS:
+        choices = ", ".join(ENGINE_LABELS.values())
+        raise ValueError(f"Unknown storytelling_engine. Choose one of: {choices}.")
 
     if not genres and not experiences and not engine:
         raise ValueError(
