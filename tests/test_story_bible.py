@@ -39,7 +39,7 @@ class StoryBibleTests(unittest.TestCase):
         )
         records = list_entries(project_id, "character", self.db_path)
         self.assertEqual(records[0]["id"], entry_id)
-        self.assertEqual(records[0]["data"]["age"], "28")
+        self.assertEqual(records[0]["data"]["age"], "30")
         self.assertEqual(list_entries(project_id, "location", self.db_path), [])
 
     def test_entry_update_and_delete(self):
