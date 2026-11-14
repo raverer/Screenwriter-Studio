@@ -17,10 +17,12 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Continuity checking:** deterministic checks compare explicit character-age references in screenplay text with numeric ages stored in the Story Bible.
 - **Screenplay validation:** deterministic heuristic checks for common formatting issues such as missing scene headings, likely INT./EXT. mismatches, repeated transitions, and camera directions.
 - **Script Doctor:** request a full screenplay revision while retaining the previous version for comparison.
+- **Research Library with RAG:** upload PDF, DOCX, TXT and Markdown sources per project; extract text, split it into overlapping chunks, create local Ollama embeddings, and store vectors in SQLite. Search semantically with cosine similarity and inspect matching excerpts with source filename, PDF page and similarity score.
+- **Research-grounded writing (opt-in):** enable retrieved research in AI prompts to add the top relevant, source-labelled excerpts to scene planning and screenplay writing. Research sources are kept separate from Story Bible facts and story canon.
 - **Export:** download screenplay drafts as DOCX or PDF.
 - **Story structure knowledge library (Python module):** structured definitions for seven narrative frameworks, including their core engines, genre affinities, audience experiences, strengths, cautions, and structural components.
 - **Explainable structure recommendations:** rank frameworks using project genre, intended audience experience, and dominant storytelling engine; show match reasons, heuristic score breakdowns, cautions, and complementary structures.
-- **Story Architecture Blueprint:** generate a structure-specific story-wide outline, edit its JSON, and explicitly approve it after validation of required fields and the exact ordered beat sequence. Approval currently remains in the active Streamlit session and is not yet persisted across reloads or passed into scene-generation prompts.
+- **Persistent Story Architecture Blueprint:** generate a structure-specific story-wide outline, edit its JSON, and explicitly approve it after validation of required fields and the exact ordered beat sequence. Approved architecture is saved per project in SQLite, restored when the project is loaded, and included in scene-planning and screenplay-generation context.
 
 ## Architecture
 
@@ -34,14 +36,16 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `story_structure.py` — structured reference definitions for seven narrative frameworks.
 - `structure_recommender.py` — explainable, deterministic recommendations based on genre, audience experience, and storytelling engine.
 - `story_architecture.py` — framework-specific prompt generation, injectable Ollama workflow, strict JSON parsing and beat-order validation.
-- `story_architecture_ui.py` — Streamlit recommendation, generation, edit and approval interface.
+- `story_architecture_ui.py` — Streamlit recommendation, generation, edit and project-persistent approval interface.
+- `research_rag.py` — document text extraction, overlapping chunking, Ollama embeddings, project-scoped SQLite vector storage, cosine similarity retrieval, and source-labelled prompt context.
+- `research_rag_ui.py` — upload, index, delete and semantically search research documents.
 - `tests/` — unit tests for persistence, extraction, continuity checks, screenplay validation, structure recommendations, architecture generation and the deferred experimental evaluator.
 
 For the component diagram, data flows, persistence model, and implementation boundaries, see [the architecture document](docs/ARCHITECTURE.md). For the seven frameworks and recommendation scoring method, see [the Story Structure Engine guide](docs/STORY_STRUCTURE_ENGINE.md).
 
-The story-structure recommender is deterministic and explainable; it is a creative heuristic, not a scientifically validated genre classifier or probability model. No single structure is required for a genre.
+The story-structure recommender is deterministic and explainable; it is a creative heuristic, not a scientifically validated genre classifier or probability model. No single structure is required for a genre. Story Architecture approval is stored separately from the draft and only approved JSON is restored and added to prompts.
 
-The Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. Semantic retrieval / RAG is not implemented yet.
+The Story Bible can be maintained manually or populated from writer-reviewed extraction candidates. Model output is not saved until the writer reviews and approves it. Continuity checking currently covers explicit numeric character-age references only; other contradictions require human review. RAG is implemented as a lightweight, exact cosine-similarity scan over project-specific embeddings stored in SQLite; it does not use a separate vector database, hybrid retrieval, a reranker, or a learned retrieval evaluator.
 
 ## Requirements
 
@@ -75,6 +79,7 @@ Pull the default model if it is not already installed:
 
 ```bash
 ollama pull llama3:latest
+ollama pull nomic-embed-text:latest
 ```
 
 Start Ollama, then launch the app:
@@ -91,7 +96,7 @@ Saved projects appear in the **Saved projects** selector in the sidebar. Choose 
 
 Existing projects created before workspace persistence was added keep their project settings and Story Bible records. They have no previously saved screenplay workspace to restore; paste or recreate an old draft once and it will autosave from then on.
 
-The SQLite database is stored locally in `screenwriter_studio.db` next to the application. It is created automatically and excluded from Git by `.gitignore`. It stores project metadata, writing workspaces, and Story Bible entries.
+The SQLite database is stored locally in `screenwriter_studio.db` next to the application. It is created automatically and excluded from Git by `.gitignore`. It stores project metadata, writing workspaces, approved Story Architectures, Story Bible entries, research documents, text chunks and embedding vectors.
 
 To store the database elsewhere, set `SCREENWRITER_DB_PATH` to a database file path before launching the app.
 
@@ -114,7 +119,7 @@ python -m unittest discover -s tests -v
 
 ## Continuous Integration
 
-GitHub Actions compiles the Python modules and runs the unit test suite on pushes and pull requests using Python 3.10 and 3.11. The workflow is defined in `.github/workflows/ci.yml`. The current suite contains 95 passing tests.
+GitHub Actions compiles the Python modules and runs the unit test suite on pushes and pull requests using Python 3.10 and 3.11. The workflow is defined in `.github/workflows/ci.yml`. The test suite covers persistence, story structure and architecture validation, research ingestion, embedding orchestration, project-isolated retrieval and source formatting.
 
 Run the same checks locally before pushing:
 
@@ -123,10 +128,20 @@ python -m compileall -q .
 python -m unittest discover -s tests -v
 ```
 
-## Current limitations
+## RAG implementation details and limitations
+
+- Supported uploads: PDF, DOCX, TXT and Markdown; each file is limited to 10 MB and 500 chunks.
+- Text is split into 220-word chunks with a 40-word overlap. PDF page numbers are retained when text is extracted.
+- Ollama generates embeddings through `/api/embed` using `nomic-embed-text:latest` by default. Install it with `ollama pull nomic-embed-text`.
+- Embeddings and source text are stored locally in SQLite. Retrieval scans the selected project's vectors and ranks them with cosine similarity. Only documents indexed with the selected embedding model are searched.
+- The Research Library search view displays source excerpts. When the sidebar option **Use retrieved research in AI prompts** is enabled, up to four retrieved chunks are added to writing prompts with source filename/page labels.
+- The pipeline extracts text from digital PDFs; it does not OCR scanned/image-only PDFs. Complex PDF layouts, tables, footnotes and DOCX formatting may not be preserved accurately.
+- Retrieval uses dense embeddings and exact cosine scoring only. There is no hybrid keyword search, approximate-nearest-neighbour index, reranker, retrieval-quality benchmark, or automated source citation in the final screenplay. Writers should inspect the cited excerpts and verify factual claims.
+- Story Bible facts represent established story canon; retrieved research is supporting reference material and should not silently override the writer's brief or Story Bible.
+
+## Other limitations
 
 - Story Bible extraction processes only the first 8,000 screenplay characters in this version.
-- Continuity information is added to prompts as bounded text context. A retrieval-augmented generation (RAG) pipeline is not implemented yet.
 - Screenplay formatting and continuity checks use narrow deterministic rules; review all findings and missed cases manually.
 - Local model output quality and response speed depend on the selected model and available hardware.
 - The scene evaluator is experimental and is not part of the active Streamlit workflow.
