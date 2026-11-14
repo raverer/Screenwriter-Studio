@@ -308,6 +308,21 @@ def parse_architecture_response(raw, structure_id):
     return validate_architecture(_extract_json_object(raw), structure_id)
 
 
+def generate_architecture(structure_id, project_details, llm_call):
+    """Call an injected LLM function and validate its proposed story blueprint.
+
+    llm_call must accept (system_prompt, user_prompt) and return response text.
+    This function does not persist or approve the result; writer review and
+    persistence are responsibilities of the calling application.
+    """
+    if not callable(llm_call):
+        raise TypeError("llm_call must be callable.")
+    system_prompt = build_architecture_system_prompt()
+    user_prompt = build_architecture_prompt(structure_id, project_details)
+    raw_response = llm_call(system_prompt, user_prompt)
+    return parse_architecture_response(raw_response, structure_id)
+
+
 def format_architecture_context(architecture):
     """Convert an approved architecture into compact prompt context.
 
