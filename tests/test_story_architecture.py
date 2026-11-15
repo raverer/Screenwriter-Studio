@@ -78,6 +78,37 @@ class StoryArchitecturePromptTests(unittest.TestCase):
         self.assertIn("valid JSON", prompt)
         self.assertIn("specific, filmable story architecture", prompt)
 
+    def test_advertisement_architecture_prompt_includes_target_runtime(self):
+        prompt = build_architecture_prompt(
+            "three_act",
+            {
+                "format": "Advertisement",
+                "duration_seconds": 45,
+                "title": "A Small Beginning",
+            },
+        )
+        self.assertIn("TARGET RUNTIME: 45 seconds", prompt)
+        self.assertIn("complete, shootable commercial", prompt)
+        self.assertIn("Do not invent product features", prompt)
+
+    def test_micro_drama_architecture_prompt_includes_target_runtime(self):
+        prompt = build_architecture_prompt(
+            "three_act",
+            {"format": "Micro Drama", "duration_seconds": 175},
+        )
+        self.assertIn("TARGET RUNTIME: 175 seconds", prompt)
+        self.assertIn("immediate dramatic hook", prompt)
+        self.assertIn("final reversal/cliffhanger", prompt)
+
+    def test_compact_architecture_rejects_missing_or_invalid_runtime(self):
+        with self.assertRaisesRegex(ValueError, "duration_seconds"):
+            build_architecture_prompt("three_act", {"format": "TVC"})
+        with self.assertRaisesRegex(ValueError, "between 150 and 200"):
+            build_architecture_prompt(
+                "three_act",
+                {"format": "Micro Drama", "duration_seconds": 201},
+            )
+
     def test_invalid_project_detail_container_is_rejected(self):
         with self.assertRaises(TypeError):
             build_architecture_prompt("three_act", "not a dictionary")

@@ -39,6 +39,12 @@ from research_rag import (
     embed_texts,
 )
 from research_rag_ui import render_research_library
+from screenplay_formats import (
+    DEFAULT_DURATIONS, DURATION_RANGES, FORMAT_OPTIONS,
+    build_compact_blueprint_sections, build_compact_blueprint_task,
+    build_compact_generation_instruction, build_format_guidance,
+    is_compact_script_format, validate_target_duration,
+)
 
 init_db()
 
@@ -59,6 +65,8 @@ for key, default in {
     "continuity_report": None,
     "project_title": "",
     "project_type": "Feature Film",
+    "project_duration_seconds": 30,
+    "duration_format_key": "Feature Film",
     "writing_language": "English",
     "project_genre": "",
     "project_tone": "",
@@ -221,6 +229,8 @@ def reset_new_project_workspace():
         "project_title": "",
         "active_project_id": None,
         "project_type": "Feature Film",
+        "project_duration_seconds": 30,
+        "duration_format_key": "Feature Film",
         "writing_language": "English",
         "project_genre": "",
         "project_tone": "",
@@ -267,6 +277,11 @@ if load_project_clicked:
         st.session_state["active_project_id"] = selected_project["id"]
         st.session_state["project_title"] = selected_project["title"]
         st.session_state["project_type"] = metadata.get("format", "Feature Film")
+        saved_format = metadata.get("format", "Feature Film")
+        st.session_state["duration_format_key"] = saved_format
+        st.session_state["project_duration_seconds"] = metadata.get(
+            "duration_seconds", DEFAULT_DURATIONS.get(saved_format, 30)
+        )
         st.session_state["writing_language"] = metadata.get("language", "English")
         st.session_state["project_genre"] = metadata.get("genre", "")
         st.session_state["project_tone"] = metadata.get("tone", "")
@@ -292,6 +307,21 @@ if load_project_clicked:
         st.session_state["story_bible_extraction_last_seen"] = ""
         st.session_state["project_loaded_notice"] = f"Loaded project: {selected_project['title']}"
 
+def invalidate_format_dependent_plans():
+    """Invalidate plans and approved architecture when the format or runtime changes."""
+    st.session_state["scene_plan"] = ""
+    st.session_state["scene_plan_editor"] = ""
+    st.session_state["scene_plan_approved"] = False
+    st.session_state["scene_plan_approval"] = False
+    project_id = st.session_state.get("active_project_id")
+    if project_id is not None:
+        delete_project_architecture(project_id)
+    st.session_state["story_architecture_approved"] = False
+    st.session_state["story_architecture"] = None
+    st.session_state["story_architecture_editor"] = ""
+    st.session_state["story_architecture_draft_structure_id"] = None
+
+
 st.sidebar.markdown("### Project setup")
 title = st.sidebar.text_input(
     "Project title",
@@ -302,10 +332,30 @@ title = st.sidebar.text_input(
 )
 project_type = st.sidebar.selectbox(
     "Screenplay format",
-    ["Feature Film", "OTT / Web Series", "Short Film"],
+    list(FORMAT_OPTIONS),
     key="project_type",
-    help="Choose the format for this project.",
+    help="Choose Feature Film, series, short film, advertisement, TVC or Micro Drama.",
+    on_change=invalidate_format_dependent_plans,
 )
+if st.session_state.get("duration_format_key") != project_type:
+    st.session_state["duration_format_key"] = project_type
+    st.session_state["project_duration_seconds"] = DEFAULT_DURATIONS.get(project_type, 30)
+
+duration_limits = DURATION_RANGES.get(project_type)
+if duration_limits:
+    minimum_duration, maximum_duration = duration_limits
+    st.sidebar.slider(
+        "Target runtime (seconds)", minimum_value=minimum_duration,
+        max_value=maximum_duration, step=1, key="project_duration_seconds",
+        help="Advertisement and TVC: 15–120 seconds. Micro Drama: 150–200 seconds.",
+        on_change=invalidate_format_dependent_plans,
+    )
+    project_duration_seconds = validate_target_duration(
+        project_type, st.session_state["project_duration_seconds"]
+    )
+else:
+    project_duration_seconds = None
+
 language = st.sidebar.text_input(
     "Writing language",
     key="writing_language",
@@ -336,6 +386,7 @@ if title.strip():
             title,
             {
                 "format": project_type,
+                "duration_seconds": project_duration_seconds,
                 "language": language,
                 "genre": genre,
                 "tone": tone,
@@ -356,17 +407,25 @@ else:
     st.session_state["active_project_id"] = None
 
 st.sidebar.markdown("---")
-generate_btn = st.sidebar.button("✍️ Generate Scene 1", use_container_width=True)
-next_scene_btn = st.sidebar.button("＋ Generate Next Scene", use_container_width=True)
+compact_format = is_compact_script_format(project_type)
+generate_btn = st.sidebar.button(
+    "✍️ Generate Complete Script" if compact_format else "✍️ Generate Scene 1",
+    use_container_width=True,
+)
+next_scene_btn = (False if compact_format else st.sidebar.button("＋ Generate Next Scene", use_container_width=True))
 doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True)
-plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
-plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
+plan_opening_btn = st.sidebar.button(
+    "🧭 Plan Complete Script" if compact_format else "🧭 Plan Opening Scene",
+    use_container_width=True,
+)
+plan_next_btn = (False if compact_format else st.sidebar.button("🧭 Plan Next Scene", use_container_width=True))
 validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
 
 def project_context(research_query=""):
     context = f"""PROJECT
 Title: {title or 'Untitled'}
 Format: {project_type}
+Target runtime: {f"{project_duration_seconds} seconds" if project_duration_seconds else "Not fixed"}
 Language: {language}
 Genre: {genre}
 Tone: {tone}
@@ -376,6 +435,10 @@ Setting: {setting}
 Story notes and constraints: {notes}
 Style guidance: {writing_style or 'Cinematic, original and restrained'}
 Audience / genre guidance: {trend_style or 'Use genre conventions without clichés'}"""
+    context += "\n\n" + build_format_guidance(
+        project_type, project_duration_seconds
+    )
+
     bible_context = format_story_bible_context(current_project_id)
     if bible_context:
         context += "\n\n" + bible_context
@@ -408,13 +471,52 @@ Audience / genre guidance: {trend_style or 'Use genre conventions without clich�
             st.warning(f"Research retrieval was skipped: {exc}")
     return context
 
+
 system_prompt = build_system_prompt(language.strip() or "English", project_type)
 
 def create_scene_plan(previous_script=""):
-    context = project_context(previous_script[-3000:] if previous_script else "")
-    task = (f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\nSCREENPLAY SO FAR:\n{previous_script[-9000:]}"
-            if previous_script else
-            "Plan the opening scene. Establish the protagonist through behaviour, create a dramatic situation and a compelling hook without rushing the main premise.")
+    research_query = previous_script[-3000:] if previous_script else ""
+    context = project_context(research_query)
+
+    if compact_format:
+        task = build_compact_blueprint_task(
+            project_type, project_duration_seconds
+        )
+        sections = build_compact_blueprint_sections(project_type)
+        prompt = f"""{context}
+
+{task}
+
+Build a practical, complete-script blueprint. Divide the runtime into timed
+shots/scenes with explicit start and end times. Every segment must connect and
+the timings must add up to exactly {project_duration_seconds} seconds.
+Do not confuse spoken-word count with screen time: account for performance,
+pauses, visual action, music, supers and transitions.
+
+{sections}
+
+Every timing must be plausible. Flag missing product facts or claims rather than
+inventing them. Make the complete output shootable and specific to the brief."""
+        system = (
+            "You are a professional commercial creative director and screenplay "
+            "planner. Produce timed, production-aware complete-script blueprints. "
+            "Keep the runtime exact and do not invent brand claims."
+            if project_type in {"Advertisement", "TVC"}
+            else
+            "You are a professional micro-drama writer and story editor. Design "
+            "a complete, emotionally clear, tightly paced dramatic arc with exact "
+            "runtime and causal escalation."
+        )
+        with st.spinner("Designing the complete timed script blueprint…"):
+            return call_ollama(
+                system, prompt, model, min(0.35, temperature), 1400
+            )
+
+    task = (
+        f"Plan exactly ONE next scene. Advance the story with a new choice, obstacle and consequence. Avoid repeating the previous scene.\nSCREENPLAY SO FAR:\n{previous_script[-9000:]}"
+        if previous_script else
+        "Plan the opening scene. Establish the protagonist through behaviour, create a dramatic situation and a compelling hook without rushing the main premise."
+    )
     prompt = f"""{context}
 
 {task}
@@ -448,13 +550,27 @@ Every beat must cause or motivate the next. Do not write screenplay dialogue."""
             prompt, model, min(0.35, temperature), 1100
         )
 
+
 from screenplay_validator import validate_screenplay
 
 def generate_scene_1():
     if not st.session_state.scene_plan.strip() or not st.session_state.scene_plan_approved:
-        st.warning("Create a Scene Blueprint, review it, and approve it before generating.")
+        label = "Complete Script Blueprint" if compact_format else "Scene Blueprint"
+        st.warning(f"Create, review and approve the {label} before generating.")
         return
-    prompt = f"""{project_context()}
+
+    if compact_format:
+        format_instruction = build_compact_generation_instruction(
+            project_type, project_duration_seconds
+        )
+        prompt = f"""{project_context()}
+
+HUMAN-APPROVED COMPLETE-SCRIPT BLUEPRINT:
+{st.session_state.scene_plan}
+
+{format_instruction}"""
+    else:
+        prompt = f"""{project_context()}
 
 HUMAN-APPROVED SCENE BLUEPRINT:
 {st.session_state.scene_plan}
@@ -463,14 +579,22 @@ Write ONLY this scene. Follow its objective, conflict, causal beats, escalation
 and turning point. Preserve character facts. Use correct INT./EXT. headings,
 one scene heading unless location changes, minimal transitions and no unnecessary
 camera directions. Output screenplay text only."""
-    with st.spinner("Llama 3 is writing from your approved blueprint…"):
+    with st.spinner(
+        "Writing the complete timed script…" if compact_format
+        else "Llama 3 is writing from your approved blueprint…"
+    ):
         result = call_ollama(system_prompt, prompt, model, temperature, max_tokens)
     st.session_state.script_text = result
-    st.session_state.last_assistant = "Scene generated from your approved blueprint."
+    st.session_state.last_assistant = (
+        "Complete timed script generated from your approved blueprint."
+        if compact_format
+        else "Scene generated from your approved blueprint."
+    )
     st.session_state.scene_plan = ""
     st.session_state.scene_plan_approved = False
     st.session_state["scene_plan_approval"] = False
     st.session_state.project_bible = project_context()
+
 
 def generate_next_scene():
     if not st.session_state.script_text.strip():
@@ -529,7 +653,7 @@ if plan_opening_btn:
         st.session_state.scene_plan_approved = False
         st.session_state["scene_plan_approval"] = False
         st.session_state["scene_plan_editor"] = st.session_state.scene_plan
-        st.session_state.last_assistant = "Scene Blueprint created. Review and approve it before generation."
+        st.session_state.last_assistant = ("Complete-script blueprint created. Review its timings and approve it before generation." if compact_format else "Scene Blueprint created. Review and approve it before generation.")
     except Exception as exc:
         st.error(str(exc))
 if plan_next_btn:
@@ -573,6 +697,7 @@ render_story_architecture(
     {
         "title": title,
         "format": project_type,
+        "duration_seconds": project_duration_seconds,
         "language": language,
         "genre": genre,
         "tone": tone,
@@ -648,7 +773,7 @@ with left:
         else:
             st.info("No character records with numeric ages were available to check.")
 with right:
-    st.subheader("🧭 Scene Blueprint")
+    st.subheader("🧭 Complete Script Blueprint" if compact_format else "🧭 Scene Blueprint")
     if st.session_state.scene_plan:
         st.text_area("Review and edit the blueprint", key="scene_plan_editor", height=390)
         st.session_state.scene_plan = st.session_state.scene_plan_editor
@@ -658,11 +783,11 @@ with right:
             key="scene_plan_approval"
         )
         if st.session_state.scene_plan_approved:
-            st.success("Blueprint approved. You can now generate the scene.")
+            st.success("Complete script blueprint approved. You can now generate the full script." if compact_format else "Blueprint approved. You can now generate the scene.")
         else:
             st.caption("Generation is locked until you approve the blueprint.")
     else:
-        st.caption("Plan → Review/edit → Approve → Generate.")
+        st.caption("Plan complete timed script → Review/edit → Approve → Generate." if compact_format else "Plan → Review/edit → Approve → Generate.")
     st.subheader("💬 Studio notes")
     if st.session_state.last_assistant:
         st.info(st.session_state.last_assistant)
