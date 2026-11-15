@@ -39,6 +39,12 @@ from research_rag import (
     embed_texts,
 )
 from research_rag_ui import render_research_library
+from screenplay_formats import (
+    DEFAULT_DURATIONS, DURATION_RANGES, FORMAT_OPTIONS,
+    build_compact_blueprint_sections, build_compact_blueprint_task,
+    build_compact_generation_instruction, build_format_guidance,
+    is_compact_script_format, validate_target_duration,
+)
 
 init_db()
 
@@ -59,6 +65,8 @@ for key, default in {
     "continuity_report": None,
     "project_title": "",
     "project_type": "Feature Film",
+    "project_duration_seconds": 30,
+    "duration_format_key": "Feature Film",
     "writing_language": "English",
     "project_genre": "",
     "project_tone": "",
@@ -221,6 +229,8 @@ def reset_new_project_workspace():
         "project_title": "",
         "active_project_id": None,
         "project_type": "Feature Film",
+        "project_duration_seconds": 30,
+        "duration_format_key": "Feature Film",
         "writing_language": "English",
         "project_genre": "",
         "project_tone": "",
@@ -267,6 +277,11 @@ if load_project_clicked:
         st.session_state["active_project_id"] = selected_project["id"]
         st.session_state["project_title"] = selected_project["title"]
         st.session_state["project_type"] = metadata.get("format", "Feature Film")
+        saved_format = metadata.get("format", "Feature Film")
+        st.session_state["duration_format_key"] = saved_format
+        st.session_state["project_duration_seconds"] = metadata.get(
+            "duration_seconds", DEFAULT_DURATIONS.get(saved_format, 30)
+        )
         st.session_state["writing_language"] = metadata.get("language", "English")
         st.session_state["project_genre"] = metadata.get("genre", "")
         st.session_state["project_tone"] = metadata.get("tone", "")
@@ -302,10 +317,28 @@ title = st.sidebar.text_input(
 )
 project_type = st.sidebar.selectbox(
     "Screenplay format",
-    ["Feature Film", "OTT / Web Series", "Short Film"],
+    list(FORMAT_OPTIONS),
     key="project_type",
-    help="Choose the format for this project.",
+    help="Choose Feature Film, series, short film, advertisement, TVC or Micro Drama.",
 )
+if st.session_state.get("duration_format_key") != project_type:
+    st.session_state["duration_format_key"] = project_type
+    st.session_state["project_duration_seconds"] = DEFAULT_DURATIONS.get(project_type, 30)
+
+duration_limits = DURATION_RANGES.get(project_type)
+if duration_limits:
+    minimum_duration, maximum_duration = duration_limits
+    st.sidebar.slider(
+        "Target runtime (seconds)", minimum_value=minimum_duration,
+        max_value=maximum_duration, step=1, key="project_duration_seconds",
+        help="Advertisement and TVC: 15–120 seconds. Micro Drama: 150–200 seconds.",
+    )
+    project_duration_seconds = validate_target_duration(
+        project_type, st.session_state["project_duration_seconds"]
+    )
+else:
+    project_duration_seconds = None
+
 language = st.sidebar.text_input(
     "Writing language",
     key="writing_language",
@@ -336,6 +369,7 @@ if title.strip():
             title,
             {
                 "format": project_type,
+                "duration_seconds": project_duration_seconds,
                 "language": language,
                 "genre": genre,
                 "tone": tone,
@@ -356,11 +390,18 @@ else:
     st.session_state["active_project_id"] = None
 
 st.sidebar.markdown("---")
-generate_btn = st.sidebar.button("✍️ Generate Scene 1", use_container_width=True)
-next_scene_btn = st.sidebar.button("＋ Generate Next Scene", use_container_width=True)
+compact_format = is_compact_script_format(project_type)
+generate_btn = st.sidebar.button(
+    "✍️ Generate Complete Script" if compact_format else "✍️ Generate Scene 1",
+    use_container_width=True,
+)
+next_scene_btn = (False if compact_format else st.sidebar.button("＋ Generate Next Scene", use_container_width=True))
 doctor_btn = st.sidebar.button("🩺 AI Script Doctor", use_container_width=True)
-plan_opening_btn = st.sidebar.button("🧭 Plan Opening Scene", use_container_width=True)
-plan_next_btn = st.sidebar.button("🧭 Plan Next Scene", use_container_width=True)
+plan_opening_btn = st.sidebar.button(
+    "🧭 Plan Complete Script" if compact_format else "🧭 Plan Opening Scene",
+    use_container_width=True,
+)
+plan_next_btn = (False if compact_format else st.sidebar.button("🧭 Plan Next Scene", use_container_width=True))
 validate_btn = st.sidebar.button("🔎 Validate Screenplay", use_container_width=True)
 
 def project_context(research_query=""):
