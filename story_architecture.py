@@ -8,6 +8,7 @@ import json
 from collections.abc import Mapping
 
 from story_structure import get_structure
+from screenplay_formats import build_format_guidance, is_compact_script_format
 
 
 TOP_LEVEL_FIELDS = (
@@ -59,6 +60,7 @@ def _normalise_project_details(project_details):
     allowed_fields = (
         "title",
         "format",
+        "duration_seconds",
         "language",
         "genre",
         "tone",
@@ -94,6 +96,16 @@ def build_architecture_prompt(structure_id, project_details=None):
 
     components_json = json.dumps(structure["components"], ensure_ascii=False)
     details_json = json.dumps(details, ensure_ascii=False, indent=2)
+    format_name = details.get("format", "Feature Film")
+    duration_value = details.get("duration_seconds")
+    if is_compact_script_format(format_name):
+        try:
+            duration_value = int(duration_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"A valid duration_seconds value is required for {format_name}."
+            ) from exc
+    format_guidance = build_format_guidance(format_name, duration_value)
     schema = {
         "structure_id": structure["id"],
         "title": "string",
@@ -135,6 +147,9 @@ Do not rename, merge, omit, reorder, or add components:
 
 PROJECT BRIEF
 {details_json if details else "{}"}
+
+FORMAT-SPECIFIC DIRECTION
+{format_guidance}
 
 TASK
 Propose a coherent story architecture that uses the selected structure as its
