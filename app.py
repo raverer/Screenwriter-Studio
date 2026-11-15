@@ -307,6 +307,21 @@ if load_project_clicked:
         st.session_state["story_bible_extraction_last_seen"] = ""
         st.session_state["project_loaded_notice"] = f"Loaded project: {selected_project['title']}"
 
+def invalidate_format_dependent_plans():
+    """Invalidate plans and approved architecture when the format or runtime changes."""
+    st.session_state["scene_plan"] = ""
+    st.session_state["scene_plan_editor"] = ""
+    st.session_state["scene_plan_approved"] = False
+    st.session_state["scene_plan_approval"] = False
+    project_id = st.session_state.get("active_project_id")
+    if project_id is not None:
+        delete_project_architecture(project_id)
+    st.session_state["story_architecture_approved"] = False
+    st.session_state["story_architecture"] = None
+    st.session_state["story_architecture_editor"] = ""
+    st.session_state["story_architecture_draft_structure_id"] = None
+
+
 st.sidebar.markdown("### Project setup")
 title = st.sidebar.text_input(
     "Project title",
@@ -320,6 +335,7 @@ project_type = st.sidebar.selectbox(
     list(FORMAT_OPTIONS),
     key="project_type",
     help="Choose Feature Film, series, short film, advertisement, TVC or Micro Drama.",
+    on_change=invalidate_format_dependent_plans,
 )
 if st.session_state.get("duration_format_key") != project_type:
     st.session_state["duration_format_key"] = project_type
@@ -332,6 +348,7 @@ if duration_limits:
         "Target runtime (seconds)", minimum_value=minimum_duration,
         max_value=maximum_duration, step=1, key="project_duration_seconds",
         help="Advertisement and TVC: 15–120 seconds. Micro Drama: 150–200 seconds.",
+        on_change=invalidate_format_dependent_plans,
     )
     project_duration_seconds = validate_target_duration(
         project_type, st.session_state["project_duration_seconds"]
