@@ -4,12 +4,16 @@
 
 A local-first, AI-assisted screenwriting workspace built with Python, Streamlit, SQLite, and Ollama.
 
-Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, preserve project facts, check selected continuity rules, and resume work across sessions.
+Screenwriter Studio helps writers develop feature films, series, short films, advertisements, TVCs and micro dramas; preserve project facts and research; and resume work across sessions.
 
 ## Features
 
 - **Local LLM writing:** generate screenplay scenes using a locally running Ollama model.
-- **Human-approved Scene Blueprint:** plan a scene, review and edit its objectives, conflict, beats, turning point, and continuity notes, then approve it before generation.
+- **Human-approved Scene Blueprint:** for feature films, series and short films, plan a scene, review and edit its objectives, conflict, beats, turning point and continuity notes, then approve it before generation.
+- **Commercial and Micro Drama formats:** choose Advertisement or TVC (15–120 seconds), or Micro Drama (150–200 seconds). Set the target runtime in seconds; it is saved with the project and included in prompts.
+- **Complete short-form workflow:** Advertisement, TVC and Micro Drama use a full-script blueprint with timed shots/scenes. The writer reviews and approves the entire timed blueprint before generating the complete script, rather than generating one scene at a time.
+- **Commercial writing guidance:** advertisement/TVC prompts focus on a fast audience hook, one clear brand proposition, benefit, brand moment and CTA where appropriate. The model is instructed not to invent product claims, prices, offers, endorsements or legal copy.
+- **Micro Drama writing guidance:** prompts target a complete dramatic arc with an immediate hook, central conflict, escalation and payoff/reversal/cliffhanger.
 - **Project library and resume:** switch between saved projects. Project settings, screenplay drafts, scene blueprints, approval state, Script Doctor comparison drafts, and studio notes autosave locally to SQLite.
 - **Persistent Story Bible:** maintain project-specific records for characters, locations, props, and timeline events.
 - **Writer-reviewed Story Bible extraction:** ask the local model to propose structured records from a screenplay, edit the JSON, and explicitly approve saving. Existing matching records require a separate overwrite confirmation.
@@ -24,6 +28,21 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - **Explainable structure recommendations:** rank frameworks using project genre, intended audience experience, and dominant storytelling engine; show match reasons, heuristic score breakdowns, cautions, and complementary structures.
 - **Persistent Story Architecture Blueprint:** generate a structure-specific story-wide outline, edit its JSON, and explicitly approve it after validation of required fields and the exact ordered beat sequence. Approved architecture is saved per project in SQLite, restored when the project is loaded, and included in scene-planning and screenplay-generation context.
 
+## Supported screenplay formats
+
+| Format | Target runtime | Writing workflow |
+|---|---:|---|
+| Feature Film | No fixed limit | Scene-by-scene planning and generation |
+| OTT / Web Series | No fixed limit | Scene-by-scene planning and generation |
+| Short Film | No fixed limit | Scene-by-scene planning and generation |
+| Advertisement | 15–120 seconds | Complete timed commercial blueprint, then complete script |
+| TVC | 15–120 seconds | Complete timed television-commercial blueprint, then complete script |
+| Micro Drama | 150–200 seconds | Complete timed dramatic blueprint, then complete script |
+
+Advertisement, TVC and Micro Drama runtimes are inclusive of the stated endpoints and selected in whole seconds. The target duration is stored in project metadata. Changing the format or target runtime invalidates an existing scene blueprint and approved Story Architecture, because those plans were generated against different constraints.
+
+For commercials, the writing prompt accounts for visual action, dialogue/voice-over, sound/music, supers, transitions and end cards. For Micro Drama, it emphasises a complete short dramatic arc rather than an episode outline. The model is instructed to make timed segment durations add up to the selected runtime; actual edit duration still needs a production timing pass.
+
 ## Architecture
 
 - `app.py` — Streamlit application, project setup, project switching, generation workflow, and exports.
@@ -35,7 +54,8 @@ Screenwriter Studio helps a writer plan scenes, generate screenplay drafts, pres
 - `screenplay_validator.py` — deterministic, dependency-free screenplay formatting checks.
 - `story_structure.py` — structured reference definitions for seven narrative frameworks.
 - `structure_recommender.py` — explainable, deterministic recommendations based on genre, audience experience, and storytelling engine.
-- `story_architecture.py` — framework-specific prompt generation, injectable Ollama workflow, strict JSON parsing and beat-order validation.
+- `story_architecture.py` — framework-specific prompt generation, runtime-aware format guidance, injectable Ollama workflow, strict JSON parsing and beat-order validation.
+- `screenplay_formats.py` — supported format definitions, runtime ranges, validation, compact-script blueprint sections and generation instructions.
 - `story_architecture_ui.py` — Streamlit recommendation, generation, edit and project-persistent approval interface.
 - `research_rag.py` — document text extraction, overlapping chunking, Ollama embeddings, project-scoped SQLite vector storage, cosine similarity retrieval, and source-labelled prompt context.
 - `research_rag_ui.py` — upload, index, delete and semantically search research documents.
